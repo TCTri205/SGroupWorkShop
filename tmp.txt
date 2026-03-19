@@ -1,0 +1,18 @@
+- agent điều hướng: để điều hướng cho các agent con
+
+các agent con:
+- agent AI team: giới thiệu về AI team và mô tả các dự án
+    - prompt sẵn 
+    - tách ra mỗi module là 1 agent để mô tả về những module đó
+- agent trả lời về những câu hỏi chung chung: (ví dụ: bạn là ai? -> tôi là AI chatbot được Sgroup 
+                                              phát triển, rồi mô tả chatbot này có thể giúp được những gì)
+- agent trả lời về thời tiết (có search api weather)
+- agent trả lời tin tức, thời sự (có search api news)
+- agent trả lời kiến thức về IT (có search api google)
+- agent trả lời kiến thức về SGroup 
+
+UI:
+- bên trái là chatbot
+- bên phải là: nhúng link web vào để xem (option nếu có trang web)
+
+
