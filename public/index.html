@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="SGroup AI Console - Hệ thống chatbot đa-agent tích hợp kiến thức SGroup và MCP tools." />
+    <title>SGroup AI Console | Hệ Thống Chatbot Đa-Agent</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="background-glow"></div>
+    <main class="layout">
+      <section class="chat-panel">
+        <header class="hero">
+          <div class="eyebrow">
+            <i data-lucide="cpu" class="icon-sm"></i> SGroup Workspace
+          </div>
+          <h1>SGroup AI Console</h1>
+          <p class="intro">
+            Điều phối thông minh qua <strong>Specialist Agents</strong>. 
+            Tự động kích hoạt <strong>MCP Tools</strong> để truy xuất tri thức và tin tức thời gian thực.
+          </p>
+        </header>
+
+        <div id="messages" class="messages" aria-live="polite">
+          <!-- Messages will be injected here -->
+        </div>
+
+        <div id="typing-indicator" class="typing-indicator is-hidden">
+          <span></span><span></span><span></span>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <div class="input-container">
+            <textarea
+              id="message-input"
+              name="message"
+              rows="1"
+              placeholder="Hỏi về thời tiết, tin tức AI, hoặc kiến thức SGroup..."
+              autocomplete="off"
+            ></textarea>
+            <button type="submit" id="send-button" aria-label="Gửi tin nhắn">
+              <i data-lucide="send"></i>
+            </button>
+          </div>
+          <div class="composer-meta">
+            <p class="hint">Shift + Enter để xuống dòng. Link được mở tự động ở panel bên phải.</p>
+          </div>
+        </form>
+      </section>
+
+      <aside id="web-panel" class="web-panel is-hidden">
+        <header class="web-panel-header">
+          <div class="header-main">
+            <p class="eyebrow">Web Inspector</p>
+            <h2 id="web-title">Nguồn Tham Khảo</h2>
+            <div id="web-panel-status" class="status-indicator text-muted">Sẵn sàng</div>
+          </div>
+          <div class="header-actions">
+            <button id="close-panel" title="Đóng panel" class="btn-icon">
+              <i data-lucide="x"></i>
+            </button>
+            <a id="web-link" href="" target="_blank" rel="noreferrer" class="btn-primary-sm">
+              <i data-lucide="external-link"></i> Mở Trang Ngoài
+            </a>
+          </div>
+        </header>
+        <div class="frame-container">
+          <div id="iframe-loader" class="loader-overlay is-hidden">
+            <div class="spinner"></div>
+            <p>Đang tải trang...</p>
+          </div>
+          <iframe id="web-frame" title="Trình xem web tích hợp" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+          <div id="iframe-error" class="error-overlay is-hidden">
+            <i data-lucide="shield-alert" class="icon-lg"></i>
+            <h3>Trang web chặn hiển thị trực tiếp</h3>
+            <p>Vì lý do bảo mật, trang này không cho phép nhúng vào ứng dụng khác.</p>
+            <a id="web-link-fallback" href="" target="_blank" class="btn-primary">Mở trong cửa sổ mới</a>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <template id="message-template">
+      <article class="message-wrapper">
+        <div class="message-avatar">
+          <i data-lucide="user"></i>
+        </div>
+        <div class="message-body">
+          <div class="message-header">
+            <span class="message-role">Bạn</span>
+            <span class="message-time">vừa xong</span>
+          </div>
+          <div class="message-content"></div>
+          <div class="message-footer"></div>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+    <script>
+      // Initialize icons
+      lucide.createIcons();
+    </script>
+  </body>
+</html>

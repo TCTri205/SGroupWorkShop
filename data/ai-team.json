@@ -1,0 +1,47 @@
+[
+  {
+    "domain": "ai-team",
+    "title": "AI Team Overview",
+    "summary": "AI Team của SGroup xây chatbot, workflow AI và các ứng dụng tối ưu vận hành nội bộ.",
+    "keywords": [
+      "ai team",
+      "team ai",
+      "doi ai",
+      "gioi thieu ai team"
+    ],
+    "content": "AI Team tập trung xây các sản phẩm AI áp dụng thực tế cho vận hành, chăm sóc khách hàng và tri thức nội bộ. Team có khả năng thiết kế chatbot theo agent, tích hợp search API, knowledge base và dashboard quản trị.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "overview"
+  },
+  {
+    "domain": "ai-team",
+    "title": "AI Chatbot Module",
+    "summary": "Module chatbot đa-agent cho tư vấn, điều hướng, tìm kiếm và hiển thị nguồn.",
+    "keywords": [
+      "chatbot",
+      "agent",
+      "module chatbot",
+      "du an chatbot"
+    ],
+    "content": "Module chatbot đa-agent gồm router agent, các specialist agents, giao diện chat, web preview panel và lớp adapter để gọi weather, news hoặc web search provider.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "chatbot"
+  },
+  {
+    "domain": "ai-team",
+    "title": "Knowledge Assistant Module",
+    "summary": "Module trợ lý tri thức để trả lời câu hỏi về quy trình, tài liệu và doanh nghiệp.",
+    "keywords": [
+      "knowledge",
+      "tri thuc",
+      "assistant",
+      "noi bo"
+    ],
+    "content": "Module knowledge assistant kết hợp nội dung tĩnh có cấu trúc với nguồn chính thức được whitelist. Mục tiêu là trả lời ổn định, có dẫn nguồn và dễ bảo trì khi nội dung thay đổi.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "knowledge-assistant"
+  }
+]

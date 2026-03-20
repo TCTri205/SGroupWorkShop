@@ -1,0 +1,20 @@
+[
+  {
+    "domain": "sgroup",
+    "title": "SGroup Overview",
+    "summary": "SGroup là nguồn tri thức doanh nghiệp mà chatbot có thể giới thiệu ở mức cơ bản.",
+    "keywords": ["sgroup", "cong ty", "gioi thieu sgroup", "ve sgroup"],
+    "content": "Chatbot SGroup có thể cung cấp thông tin tổng quan về doanh nghiệp, năng lực AI team, các nhóm dự án tiêu biểu và định hướng ứng dụng AI trong nội bộ hoặc sản phẩm khách hàng.",
+    "sourceType": "static",
+    "sourceUrl": ""
+  },
+  {
+    "domain": "sgroup",
+    "title": "Nguon chinh thuc SGroup",
+    "summary": "Nguồn chính thức để người dùng xem thêm thông tin SGroup.",
+    "keywords": ["website sgroup", "facebook sgroup", "nguon chinh thuc"],
+    "content": "Khi cần xem thêm, chatbot ưu tiên dẫn người dùng tới website hoặc fanpage chính thức của SGroup thay vì suy diễn thông tin chưa xác nhận.",
+    "sourceType": "official",
+    "sourceUrl": "https://www.facebook.com/"
+  }
+]

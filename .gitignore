@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment variables (KHÔNG commit lên GitHub)
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Temporary
+tmp/
+*.tmp
