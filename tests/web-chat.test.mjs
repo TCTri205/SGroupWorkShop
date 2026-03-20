@@ -2,7 +2,7 @@ import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 
-import { routeMessage, createRouteFromIntent, extractTopic } from "../src/lib/router.mjs";
+import { createRouteFromIntent, extractTopic, routeMessage } from "../src/lib/router.mjs";
 import { createServer } from "../src/server.mjs";
 
 let server;
@@ -60,6 +60,19 @@ describe("Web router", () => {
     assert.equal(route.intent, "weather");
     assert.equal(route.agent, "weather-specialist");
     assert.equal(route.args.location, "Ha Noi");
+    assert.deepStrictEqual(route.toolNames, ["get_weather"]);
+  });
+
+  it("should extract an international city for weather prompts", () => {
+    const route = routeMessage("Thoi tiet Dubai hom nay the nao?");
+    assert.equal(route.intent, "weather");
+    assert.equal(route.args.location, "Dubai");
+  });
+
+  it("should keep weather intent but require clarification when city is missing", () => {
+    const route = routeMessage("Thoi tiet hom nay the nao?");
+    assert.equal(route.intent, "weather");
+    assert.equal(route.args.location, null);
   });
 
   it("should route SGroup prompts to internal knowledge", () => {
@@ -83,6 +96,7 @@ describe("Web router", () => {
     const route = createRouteFromIntent("test", "bad-intent");
     assert.equal(route.intent, "general");
     assert.equal(route.toolName, null);
+    assert.deepStrictEqual(route.toolNames, []);
   });
 });
 
@@ -123,6 +137,8 @@ describe("Web server", () => {
     assert.ok(Array.isArray(payload.graph.executedNodes));
     assert.ok(Array.isArray(payload.graph.toolCalls));
     assert.equal(typeof payload.graph.usedFallbackRouter, "boolean");
+    assert.equal(payload.graph.executedNodes[0], "normalize_input");
+    assert.match(payload.graph.executedNodes.join(","), /plan_tool_calls/);
   });
 
   it("should reject empty messages", async () => {

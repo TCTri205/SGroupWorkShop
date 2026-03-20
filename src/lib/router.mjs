@@ -1,6 +1,6 @@
 const VALID_INTENTS = new Set(["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"]);
 
-const WEATHER_HINTS = ["thoi tiet", "weather", "nhiet do", "troi", "mua", "nang", "do am"];
+const WEATHER_HINTS = ["thoi tiet", "weather", "nhiet do", "troi", "mua", "nang", "do am", "du bao", "bao nhieu do"];
 const NEWS_HINTS = ["tin tuc", "tin moi", "bao moi", "news", "thoi su", "headline", "tin cong nghe", "tin kinh te"];
 const IT_HINTS = [
   "it",
@@ -22,17 +22,9 @@ const IT_HINTS = [
   "database",
   "api"
 ];
-const SGROUP_HINTS = [
-  "sgroup",
-  "ai team",
-  "clb",
-  "du an",
-  "module",
-  "nhan su",
-  "noi bo",
-  "chatbot"
-];
+const SGROUP_HINTS = ["sgroup", "ai team", "clb", "du an", "module", "nhan su", "noi bo", "chatbot"];
 const GREETING_HINTS = ["hello", "hi", "hey", "xin chao", "chao", "chao ban", "alo"];
+const WEATHER_TIME_SUFFIX = "(?:hom nay|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)";
 
 export const INTENTS = ["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"];
 
@@ -75,14 +67,26 @@ export function normalizeText(value) {
   return String(value ?? "")
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D")
     .toLowerCase()
     .trim();
 }
 
 function includesAny(haystack, needles) {
   return needles.some((needle) => haystack.includes(needle));
+}
+
+export function getToolNamesForIntent(intent) {
+  const toolName = TOOL_BY_INTENT[intent] ?? null;
+  if (!toolName) {
+    return [];
+  }
+
+  return String(toolName)
+    .split("+")
+    .map((name) => name.trim())
+    .filter(Boolean);
 }
 
 export function isGreetingMessage(message) {
@@ -98,6 +102,14 @@ export function isGreetingMessage(message) {
   return /^(xin chao|chao ban|chao|hello|hi|hey|alo)(\s+[a-z0-9]+){0,2}[!.?]*$/.test(normalized);
 }
 
+function titleCaseWords(value) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function extractWeatherLocation(normalized) {
   for (const [alias, label] of Object.entries(CITY_ALIASES)) {
     if (normalized.includes(alias)) {
@@ -105,8 +117,23 @@ export function extractWeatherLocation(normalized) {
     }
   }
 
-  const match = normalized.match(/\b(?:o|tai|cho)\s+([a-z][a-z0-9.-]*(?:\s+[a-z0-9.-]+){0,4})\b/);
-  return match?.[1]?.trim() || "Ho Chi Minh City";
+  const boundary = new RegExp(`(?=\\s+${WEATHER_TIME_SUFFIX}\\b|$)`);
+  const weatherLeadPatterns = [
+    new RegExp(`\\b(?:thoi tiet|du bao thoi tiet|weather)\\s+(?:tai|o|cho)?\\s*([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`),
+    new RegExp(`\\b(?:o|tai|cho)\\s+([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`),
+    new RegExp(`^([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`)
+  ];
+
+  for (const pattern of weatherLeadPatterns) {
+    const candidate = pattern.exec(normalized)?.[1]?.trim();
+    if (!candidate || /^(?:hom nay|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)$/.test(candidate) || candidate === "thoi tiet" || candidate === "du bao thoi tiet" || candidate === "weather") {
+      continue;
+    }
+
+    return titleCaseWords(candidate);
+  }
+
+  return null;
 }
 
 export function extractNewsCategory(normalized) {
@@ -129,15 +156,7 @@ export function extractTopic(message, normalized = normalizeText(message)) {
     return "AI chatbot";
   }
 
-  const prefixes = [
-    "tim hieu",
-    "tra cuu",
-    "nghien cuu",
-    "giai thich",
-    "gioi thieu",
-    "cho minh biet",
-    "hay cho biet"
-  ];
+  const prefixes = ["tim hieu", "tra cuu", "nghien cuu", "giai thich", "gioi thieu", "cho minh biet", "hay cho biet"];
 
   for (const prefix of prefixes) {
     if (normalized.startsWith(prefix)) {
@@ -162,6 +181,7 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
     confidence: overrides.confidence ?? 0.55,
     reasoningSummary: overrides.reasoningSummary ?? defaultReasoningSummary,
     toolName: TOOL_BY_INTENT[safeIntent] ?? null,
+    toolNames: overrides.toolNames ?? getToolNamesForIntent(safeIntent),
     args: {}
   };
 
@@ -177,7 +197,9 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
     case "weather": {
       route.args = { location: extractWeatherLocation(normalized) };
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = "Cau hoi tap trung vao thoi tiet theo dia diem.";
+        route.reasoningSummary = route.args.location
+          ? "Cau hoi tap trung vao thoi tiet theo dia diem."
+          : "Cau hoi ve thoi tiet nhung chua du dia diem de goi tool mot cach an toan.";
       }
       break;
     }

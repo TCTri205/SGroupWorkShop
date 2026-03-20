@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { handleChatMessage } from "./chat-orchestrator.mjs";
 import { searchKnowledge } from "./knowledge.mjs";
+import { invokeAssistantGraph } from "./langgraph/assistant-graph.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
 
 function safeTrim(value) {
@@ -31,21 +31,6 @@ function buildKnowledgeSummary(records) {
     .slice(0, 3)
     .map((record, index) => `${index + 1}. ${record.title}\n${record.content}`)
     .join("\n\n");
-}
-
-function normalizeToolNames(mcp = {}) {
-  if (Array.isArray(mcp.toolNames)) {
-    return mcp.toolNames.filter(Boolean);
-  }
-
-  if (mcp.toolName) {
-    return String(mcp.toolName)
-      .split("+")
-      .map((name) => name.trim())
-      .filter(Boolean);
-  }
-
-  return [];
 }
 
 export const TOOLS = [
@@ -182,9 +167,9 @@ export async function executeTool(name, args = {}) {
           return formatErrorContent("message is required");
         }
 
-        const payload = await handleChatMessage(message);
-        const toolNames = normalizeToolNames(payload.response?.mcp);
         const sessionId = safeTrim(args.sessionId) || randomUUID();
+        const payload = await invokeAssistantGraph({ message, channel: "mcp", sessionId });
+        const toolNames = payload.response?.mcp?.toolNames ?? [];
         const text = [
           `Route: ${payload.route.intent}`,
           `Agent: ${payload.route.agent}`,
@@ -222,5 +207,3 @@ export async function handleReadResource(uri) {
       return formatErrorContent(`Resource not found: ${uri}`);
   }
 }
-
-
