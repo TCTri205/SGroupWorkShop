@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { searchKnowledge } from "./knowledge.mjs";
+﻿import { searchKnowledge } from "./knowledge.mjs";
 import { invokeAssistantGraph } from "./langgraph/assistant-graph.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
 
@@ -47,13 +47,14 @@ export const TOOLS = [
   },
   {
     name: "get_news",
-    description: "Lay tin tuc theo danh muc.",
+    description: "Lay tin tuc theo danh muc hoac chu de.",
     inputSchema: {
       type: "object",
       properties: {
-        category: { type: "string", description: "Danh muc tin tuc, vi du cong-nghe." }
+        category: { type: "string", description: "Danh muc tin tuc, vi du cong-nghe." },
+        query: { type: "string", description: "Chu de tin tuc cu the, vi du chien tranh Ukraine." }
       },
-      required: ["category"]
+      anyOf: [{ required: ["category"] }, { required: ["query"] }]
     }
   },
   {
@@ -132,10 +133,11 @@ export async function executeTool(name, args = {}) {
       }
       case "get_news": {
         const category = safeTrim(args.category);
-        if (!category) {
-          return formatErrorContent("category is required");
+        const query = safeTrim(args.query);
+        if (!category && !query) {
+          return formatErrorContent("category or query is required");
         }
-        const result = await queryNews(category);
+        const result = await queryNews({ category: category || "tong-hop", query });
         return formatTextContent(result.message);
       }
       case "search_it_knowledge": {

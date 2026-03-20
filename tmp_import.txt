@@ -1,0 +1,350 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const ROOT_URL = "https://sgroupvn.org/";
+const ROOT_HOST = "sgroupvn.org";
+const OUTPUT_PATH = path.resolve("data/sgroup-site.json");
+const DEFAULT_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 15000);
+const ROOT_SUMMARY =
+  "T? ch?c h? tr? ��o t?o n?n t?ng chuy�n m�n cho c�c b?n sinh vi�n v� l� b? ph�ng kh?i s? cho c�c ? t�?ng v� d? �n. V?i mong mu?n t?o ra m�i tr�?ng k?t n?i, chia s? gi?a: Sinh vi�n - Ng�?i c� kinh nghi?m - Doanh nghi?p";
+const ROUTE_LABELS = {
+  "/": "SGroup",
+  "/ve-chung-toi": "V? ch�ng t�i",
+  "/du-an": "C�c d? �n",
+  "/tin-tuc": "Tin t?c",
+  "/tuyen-thanh-vien": "Tuy?n th�nh vi�n",
+  "/kien-thuc": "Ki?n th?c"
+};
+
+function normalizeWhitespace(value = "") {
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function decodeHtmlEntities(value = "") {
+  return String(value)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#x27;/gi, "'");
+}
+
+function stripHtml(value = "") {
+  return normalizeWhitespace(
+    decodeHtmlEntities(String(value).replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "))
+  );
+}
+
+function toAbsoluteUrl(value, baseUrl) {
+  try {
+    return new URL(value, baseUrl).href;
+  } catch {
+    return null;
+  }
+}
+
+function sameSgroupNetwork(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === ROOT_HOST || parsed.hostname.endsWith(`.${ROOT_HOST}`);
+  } catch {
+    return false;
+  }
+}
+
+function cleanTitle(title = "") {
+  return normalizeWhitespace(String(title).replace(/\s*\|\s*S-?Group.*$/i, "").trim()) || "SGroup";
+}
+
+function safeSlug(value = "") {
+  return normalizeWhitespace(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/�/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildKeywords(...parts) {
+  const tokens = new Set(["sgroup", "s group"]);
+
+  for (const part of parts) {
+    const text = normalizeWhitespace(Array.isArray(part) ? part.join(" ") : part);
+    if (!text) continue;
+    tokens.add(text);
+    for (const token of safeSlug(text).split("-")) {
+      if (token.length >= 3) {
+        tokens.add(token);
+      }
+    }
+  }
+
+  return [...tokens];
+}
+
+function extractMeta(html, patterns) {
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    const value = normalizeWhitespace(decodeHtmlEntities(match?.[1] ?? ""));
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function extractBundleUrls(html, pageUrl) {
+  const urls = new Set();
+  for (const match of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) {
+    const url = toAbsoluteUrl(match[1], pageUrl);
+    if (url) {
+      urls.add(url);
+    }
+  }
+  return [...urls];
+}
+
+function extractRoutesFromBundle() {
+  return Object.keys(ROUTE_LABELS).filter((route) => route !== "/trang-chu");
+}
+
+function extractSubdomainsFromBundle(bundleText) {
+  const urls = new Set();
+  for (const match of bundleText.matchAll(/https:\/\/([a-z0-9-]+\.)?sgroupvn\.org\/?/gi)) {
+    urls.add(match[0].endsWith("/") ? match[0] : `${match[0]}/`);
+  }
+  urls.delete(ROOT_URL);
+  urls.delete("https://admin.sgroupvn.org/");
+  return [...urls];
+}
+
+function extractGhostConfig(bundleText) {
+  const baseUrl =
+    bundleText.match(/https:\/\/admin\.sgroupvn\.org\/ghost\/api\/v3/i)?.[0] ??
+    "https://admin.sgroupvn.org/ghost/api/v3";
+  const key =
+    bundleText.match(/KEY_GHOST_API\|\|"([a-f0-9]{20,})"/i)?.[1] ??
+    bundleText.match(/posts\/\?key=([a-f0-9]{20,})/i)?.[1] ??
+    "";
+
+  return key ? { baseUrl, key } : null;
+}
+
+async function fetchWithTimeout(url, init = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchText(url) {
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; SGroupKnowledgeImporter/1.0)"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${url}`);
+  }
+
+  return response.text();
+}
+
+function recordFromPage({ title, summary, content, sourceUrl, sourceDomain, keywords, module }) {
+  const cleanSummary = normalizeWhitespace(summary);
+  const cleanContent = normalizeWhitespace(content || summary);
+  if (!cleanSummary || !cleanContent) {
+    return null;
+  }
+
+  return {
+    domain: "sgroup",
+    title: normalizeWhitespace(title) || "SGroup",
+    summary: cleanSummary,
+    keywords: buildKeywords(title, keywords),
+    content: cleanContent,
+    sourceType: "official",
+    sourceUrl,
+    sourceDomain,
+    ...(module ? { module } : {})
+  };
+}
+
+async function importPageRecord(url) {
+  const html = await fetchText(url);
+  const pageUrl = new URL(url);
+  const routeLabel = pageUrl.hostname === ROOT_HOST ? ROUTE_LABELS[pageUrl.pathname] : "";
+  const title = cleanTitle(extractMeta(html, [/<title>(.*?)<\/title>/i]));
+  const summary = extractMeta(html, [
+    /<meta[^>]+property="og:description"[^>]+content="([^"]*)"/i,
+    /<meta[^>]+name="description"[^>]+content="([^"]*)"/i
+  ]);
+  const bodyText = stripHtml(html).replace(/Loading\.\.\./g, "").trim();
+  const sourceDomain = pageUrl.hostname;
+  const pageName = routeLabel || (title && !/Think Different - Make Different/i.test(title) ? title : sourceDomain === ROOT_HOST ? "SGroup" : sourceDomain.split(".")[0]);
+  const pageSummary = routeLabel && routeLabel !== "SGroup" ? `Trang ${routeLabel} c?a SGroup tr�n website ch�nh th?c.` : summary || ROOT_SUMMARY;
+  const content = normalizeWhitespace([pageSummary, summary || ROOT_SUMMARY, bodyText].filter(Boolean).join(" "));
+
+  return {
+    html,
+    record: recordFromPage({
+      title: pageName,
+      summary: pageSummary,
+      content,
+      sourceUrl: url,
+      sourceDomain,
+      keywords: [pageName, sourceDomain, pageUrl.pathname.replaceAll("/", " ")],
+      module: sourceDomain === ROOT_HOST && pageUrl.pathname === "/" ? undefined : safeSlug(pageName)
+    })
+  };
+}
+
+function extractProjectRecords(bundleText) {
+  const projectsMatch = bundleText.match(/projects:\[(.*?)\]\}\}\}\},data:/s);
+  if (!projectsMatch) {
+    return [];
+  }
+
+  const records = [];
+  for (const match of projectsMatch[1].matchAll(/\{name:"([^"]+)",url:"([^"]+)"\}/g)) {
+    const name = normalizeWhitespace(match[1]);
+    const url = match[2];
+    records.push(
+      recordFromPage({
+        title: name,
+        summary: "D? �n c�ng khai c?a SGroup ��?c li�n k?t t? website ch�nh th?c.",
+        content: `${name} l� m?t d? �n c�ng khai ��?c SGroup gi?i thi?u tr�n website ch�nh th?c. Ng�?i d�ng c� th? xem th�m th�ng tin tr?c ti?p t?i ${url}.`,
+        sourceUrl: url,
+        sourceDomain: new URL(url).hostname,
+        keywords: [name, "du an sgroup", "project"],
+        module: safeSlug(name)
+      })
+    );
+  }
+  return records.filter(Boolean);
+}
+
+async function importGhostRecords(config) {
+  if (!config) {
+    return [];
+  }
+
+  const url = `${config.baseUrl}/content/posts/?key=${config.key}&include=tags&limit=all`;
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      headers: { Accept: "application/json", "user-agent": "Mozilla/5.0 (compatible; SGroupKnowledgeImporter/1.0)" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} for Ghost API`);
+    }
+
+    const payload = await response.json();
+    const posts = Array.isArray(payload.posts) ? payload.posts : [];
+    return posts
+      .map((post) => {
+        const summary = normalizeWhitespace(post.custom_excerpt || post.excerpt || stripHtml(post.html || ""));
+        const content = normalizeWhitespace(
+          [
+            summary,
+            stripHtml(post.html || ""),
+            Array.isArray(post.tags) ? `Tags: ${post.tags.map((tag) => tag.name).join(", ")}` : ""
+          ]
+            .filter(Boolean)
+            .join(" ")
+        );
+        return recordFromPage({
+          title: post.title,
+          summary,
+          content,
+          sourceUrl: post.url || `${ROOT_URL.replace(/\/$/, "")}/tin-tuc/${post.slug}`,
+          sourceDomain: ROOT_HOST,
+          keywords: [post.title, post.slug, ...(post.tags ?? []).map((tag) => tag.name)],
+          module: post.slug
+        });
+      })
+      .filter(Boolean);
+  } catch (error) {
+    console.warn(`Skipping Ghost import: ${error.message}`);
+    return [];
+  }
+}
+
+function dedupeRecords(records) {
+  const seen = new Set();
+  return records.filter((record) => {
+    if (!record) return false;
+    const key = `${record.sourceUrl}::${record.title}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function sortRecords(records) {
+  return [...records].sort((left, right) => {
+    const leftUrl = left.sourceUrl || "";
+    const rightUrl = right.sourceUrl || "";
+    return leftUrl.localeCompare(rightUrl) || left.title.localeCompare(right.title);
+  });
+}
+
+async function main() {
+  const rootPage = await importPageRecord(ROOT_URL);
+  const bundleUrls = extractBundleUrls(rootPage.html, ROOT_URL);
+  const bundleTexts = [];
+
+  for (const bundleUrl of bundleUrls) {
+    try {
+      bundleTexts.push(await fetchText(bundleUrl));
+    } catch (error) {
+      console.warn(`Skipping bundle ${bundleUrl}: ${error.message}`);
+    }
+  }
+
+  const combinedBundleText = bundleTexts.join("\n");
+  const routeUrls = extractRoutesFromBundle(combinedBundleText)
+    .map((route) => toAbsoluteUrl(route, ROOT_URL))
+    .filter((url) => url && sameSgroupNetwork(url));
+  const subdomainUrls = extractSubdomainsFromBundle(combinedBundleText).filter(sameSgroupNetwork);
+
+  const importedPageRecords = [rootPage.record];
+
+  for (const url of [...new Set([...routeUrls, ...subdomainUrls])]) {
+    if (!url || url === ROOT_URL) continue;
+    try {
+      const page = await importPageRecord(url);
+      if (page.record) {
+        importedPageRecords.push(page.record);
+      }
+    } catch (error) {
+      console.warn(`Skipping page ${url}: ${error.message}`);
+    }
+  }
+
+  const ghostRecords = await importGhostRecords(extractGhostConfig(combinedBundleText));
+  const records = sortRecords(dedupeRecords([...importedPageRecords, ...extractProjectRecords(combinedBundleText), ...ghostRecords]));
+
+  await fs.writeFile(OUTPUT_PATH, JSON.stringify(records, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${records.length} records to ${OUTPUT_PATH}`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+
+
+

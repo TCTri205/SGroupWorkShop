@@ -11,10 +11,10 @@
   {
     "domain": "sgroup",
     "title": "Nguon chinh thuc SGroup",
-    "summary": "Nguồn chính thức để người dùng xem thêm thông tin SGroup.",
+    "summary": "Nguồn website và fanpage chính thức để người dùng xem thêm thông tin SGroup.",
     "keywords": ["website sgroup", "facebook sgroup", "nguon chinh thuc"],
-    "content": "Khi cần xem thêm, chatbot ưu tiên dẫn người dùng tới website hoặc fanpage chính thức của SGroup thay vì suy diễn thông tin chưa xác nhận.",
+    "content": "Khi cần xem thêm thông tin và liên hệ, hãy luôn cung cấp cho người dùng 2 đường link chính thức sau: Website: https://sgroupvn.org/ và Fanpage Facebook: https://www.facebook.com/sgroupvn.org",
     "sourceType": "official",
-    "sourceUrl": "https://www.facebook.com/"
+    "sourceUrl": "https://sgroupvn.org/, https://www.facebook.com/sgroupvn.org"
   }
 ]

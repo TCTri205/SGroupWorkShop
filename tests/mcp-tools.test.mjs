@@ -15,6 +15,7 @@ import {
 import { PROMPTS, getPromptMessages } from "../src/mcp-server.mjs";
 import { queryWeather, queryNews, queryWebSearch } from "../src/lib/providers.mjs";
 import { invokeAssistantGraph } from "../src/lib/langgraph/assistant-graph.mjs";
+import { resetAssistantLlmAdapterForTests, setAssistantLlmAdapterForTests } from "../src/lib/langgraph/assistant-llm.mjs";
 import { createRouteFromIntent } from "../src/lib/router.mjs";
 
 const originalFetch = global.fetch;
@@ -49,6 +50,152 @@ function createTextResponse(text, init = {}) {
   };
 }
 
+function normalize(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
+function buildMockAssistantAdapter() {
+  return {
+    async route(message) {
+      const normalized = normalize(message);
+      if (normalized.includes("thoi tiet")) {
+        const location = normalized.includes("ha noi") ? "Ha Noi" : normalized.includes("dubai") ? "Dubai" : undefined;
+        return {
+          intent: "weather",
+          agent: "weather-specialist",
+          confidence: 0.95,
+          reasoningSummary: "LLM route to weather.",
+          args: location ? { location } : {}
+        };
+      }
+
+      if (normalized.includes("tin") && normalized.includes("redis")) {
+        return {
+          intent: "news",
+          agent: "news-specialist",
+          confidence: 0.93,
+          reasoningSummary: "LLM route to news topic.",
+          args: { category: "tong-hop", query: "Redis" }
+        };
+      }
+
+      if (normalized.includes("tin cong nghe")) {
+        return {
+          intent: "news",
+          agent: "news-specialist",
+          confidence: 0.93,
+          reasoningSummary: "LLM route to technology news.",
+          args: { category: "cong-nghe" }
+        };
+      }
+
+      if ((normalized.includes("mcp") || normalized.includes("langgraph")) && normalized.includes("sgroup")) {
+        return {
+          intent: "mixed-research",
+          agent: "research-specialist",
+          confidence: 0.91,
+          reasoningSummary: "LLM route to mixed research.",
+          args: { topic: String(message).trim(), query: String(message).trim() }
+        };
+      }
+
+      if (normalized.includes("ai team") || normalized.includes("sgroup")) {
+        return {
+          intent: "sgroup-knowledge",
+          agent: "sgroup-specialist",
+          confidence: 0.88,
+          reasoningSummary: "LLM route to internal knowledge.",
+          args: { query: String(message).trim() }
+        };
+      }
+
+      if (normalized.includes("cache") || normalized.includes("redis") || normalized.includes("mcp") || normalized.includes("api")) {
+        return {
+          intent: "it-research",
+          agent: "it-specialist",
+          confidence: 0.89,
+          reasoningSummary: "LLM route to IT research.",
+          args: { topic: String(message).trim() }
+        };
+      }
+
+      return {
+        intent: "general",
+        agent: "generalist",
+        confidence: 0.6,
+        reasoningSummary: "LLM route to general.",
+        args: {}
+      };
+    },
+
+    async plan({ route }) {
+      switch (route.intent) {
+        case "weather":
+          return {
+            toolCalls: route.args.location
+              ? [{ name: "get_weather", args: { location: route.args.location }, reason: "Need weather data." }]
+              : [],
+            planningSummary: route.args.location ? "Use weather tool." : "Need clarification."
+          };
+        case "news":
+          return {
+            toolCalls: [{ name: "get_news", args: route.args, reason: "Need news data." }],
+            planningSummary: "Use news tool."
+          };
+        case "it-research":
+          return {
+            toolCalls: [{ name: "search_it_knowledge", args: { topic: route.args.topic }, reason: "Need IT search." }],
+            planningSummary: "Use IT search."
+          };
+        case "sgroup-knowledge":
+          return {
+            toolCalls: [{ name: "search_sgroup_knowledge", args: { query: route.args.query }, reason: "Need internal knowledge." }],
+            planningSummary: "Use SGroup knowledge."
+          };
+        case "mixed-research":
+          return {
+            toolCalls: [
+              { name: "search_it_knowledge", args: { topic: route.args.topic }, reason: "Need external context." },
+              { name: "search_sgroup_knowledge", args: { query: route.args.query }, reason: "Need internal context." }
+            ],
+            planningSummary: "Use mixed tools."
+          };
+        default:
+          return { toolCalls: [], planningSummary: "No tools needed." };
+      }
+    },
+
+    async synthesize({ route, results, errors }) {
+      if (errors.length && !results.length) {
+        return { message: `Khong the xu ly yeu cau: ${errors[0]}` };
+      }
+
+      if (route.intent === "general") {
+        return { message: "Toi co the ho tro tri thuc SGroup/AI Team, thoi tiet, tin tuc va nghien cuu IT." };
+      }
+
+      if (route.intent === "weather" && !route.args.location) {
+        return { message: "Ban muon xem thoi tiet o dau?" };
+      }
+
+      if (route.intent === "sgroup-knowledge") {
+        const items = results[0]?.items ?? [];
+        return { message: items.length ? `Da tim thay ${items.length} ban ghi noi bo lien quan.` : "Chua tim thay ban ghi noi bo phu hop." };
+      }
+
+      return {
+        message: results.map((result) => result.summary).filter(Boolean).join("\n\n") || `Da xu ly intent ${route.intent}.`
+      };
+    }
+  };
+}
+
 beforeEach(() => {
   cacheClear();
   process.env.OPENWEATHER_API_KEY = "";
@@ -57,6 +204,7 @@ beforeEach(() => {
   process.env.GOOGLE_API_KEY = "";
   process.env.FETCH_TIMEOUT_MS = "50";
   global.fetch = originalFetch;
+  setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
 });
 
 afterEach(() => {
@@ -68,6 +216,7 @@ afterEach(() => {
   process.env.GOOGLE_MODEL = originalEnv.GOOGLE_MODEL;
   process.env.FETCH_TIMEOUT_MS = originalEnv.FETCH_TIMEOUT_MS;
   global.fetch = originalFetch;
+  resetAssistantLlmAdapterForTests();
 });
 
 describe("Knowledge Module (Fuzzy Search)", () => {
@@ -80,6 +229,12 @@ describe("Knowledge Module (Fuzzy Search)", () => {
     it("should find SGroup records by keyword", () => {
       const results = searchKnowledge("sgroup", "gioi thieu");
       assert.ok(Array.isArray(results));
+    });
+
+    it("should find official SGroup website snapshot records", () => {
+      const results = searchKnowledge("sgroup", "S Group la gi vay");
+      assert.ok(results.length > 0);
+      assert.equal(results.some((record) => record.sourceUrl === "https://sgroupvn.org/"), true);
     });
 
     it("should return empty array for unrelated query", () => {
@@ -184,6 +339,22 @@ describe("Providers Module", () => {
       assert.equal(result.fallbackUsed, true);
       assert.match(result.message, /RSS/);
       assert.equal(result.citations.length, 2);
+    });
+
+    it("should filter RSS results by specific news topic", async () => {
+      const rssXml = `
+        <rss><channel>
+          <item><title>Chi?n tranh leo thang</title><description>chien tranh va xung dot</description><link>https://example.com/war</link></item>
+          <item><title>Kinh t? s?ng nay</title><description>thi truong va doanh nghiep</description><link>https://example.com/economy</link></item>
+        </channel></rss>`;
+      global.fetch = async () => createTextResponse(rssXml);
+
+      const result = await queryNews({ category: "tong-hop", query: "chien tranh" });
+
+      assert.equal(result.fallbackUsed, true);
+      assert.match(result.message, /chien tranh/i);
+      assert.equal(result.citations.length, 1);
+      assert.equal(result.citations[0].url, "https://example.com/war");
     });
 
     it("should use NewsAPI when key is available", async () => {
@@ -315,17 +486,25 @@ describe("Integration Tests", () => {
     assert.match(result.content[0].text, /AI Team/);
   });
 
+  it("should answer basic SGroup overview questions from imported official records", async () => {
+    const result = await executeTool("search_sgroup_knowledge", { query: "S Group la gi vay" });
+    assert.strictEqual(result.isError, false);
+    assert.match(result.content[0].text, /SGroup|sgroupvn\.org|Think Different/i);
+  });
+
   it("should reject empty MCP tool inputs", async () => {
     const knowledge = await executeTool("search_sgroup_knowledge", { query: "   " });
     const itSearch = await executeTool("search_it_knowledge", { topic: "   " });
     const assistant = await executeTool("run_sgroup_assistant", { message: "   " });
+    const news = await executeTool("get_news", { category: "   ", query: "   " });
 
     assert.equal(knowledge.isError, true);
     assert.equal(itSearch.isError, true);
     assert.equal(assistant.isError, true);
+    assert.equal(news.isError, true);
   });
 
-  it("should run the LangGraph assistant tool with fallback router", async () => {
+  it("should run the LangGraph assistant tool with LLM orchestration", async () => {
     const result = await executeTool("run_sgroup_assistant", { message: "Tin cong nghe moi nhat" });
     assert.strictEqual(result.isError, false);
     assert.match(result.content[0].text, /Route:/);
@@ -335,9 +514,9 @@ describe("Integration Tests", () => {
   it("should expose graph payload directly for shared orchestration", async () => {
     const payload = await invokeAssistantGraph({ message: "Thoi tiet Ha Noi", channel: "web", sessionId: "test-session" });
     assert.equal(payload.route.intent, "weather");
-    assert.equal(payload.graph.usedFallbackRouter, true);
+    assert.equal(payload.graph.usedFallbackRouter, false);
     assert.equal(payload.graph.sessionId, "test-session");
-    assert.match(payload.response.message, /thời tiết/i);
+    assert.match(payload.response.message, /OPENWEATHER_API_KEY|thoi tiet|Th?i ti?t/i);
   });
 
   it("should return a greeting guidance message for general hello input", async () => {
@@ -346,6 +525,23 @@ describe("Integration Tests", () => {
     assert.deepStrictEqual(payload.response.mcp.toolNames, []);
     assert.match(payload.response.message, /chao ban|ho tro|AI Team|Thoi tiet Ha Noi hom nay|MCP/i);
     assert.doesNotMatch(payload.response.message, /Khong tim thay ket qua|The user's input/i);
+  });
+
+
+  it("should route cache and redis questions to the IT specialist", async () => {
+    const payload = await invokeAssistantGraph({ message: "Cache l? g?? Redis l? g??", channel: "web", sessionId: "redis-session" });
+    assert.equal(payload.route.intent, "it-research");
+    assert.equal(payload.route.agent, "it-specialist");
+    assert.equal(payload.response.mcp.toolNames[0], "search_it_knowledge");
+  });
+
+  it("should return explicit orchestration error when GOOGLE_API_KEY is missing and no test adapter is installed", async () => {
+    resetAssistantLlmAdapterForTests();
+    const payload = await invokeAssistantGraph({ message: "Tin cong nghe moi nhat", channel: "web", sessionId: "llm-error" });
+    assert.equal(payload.graph.routeSource, "error");
+    assert.equal(payload.graph.plannerSource, "error");
+    assert.match(payload.response.message, /GOOGLE_API_KEY/);
+    setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
   });
 
   it("should create safe general route for invalid intent", () => {
@@ -424,6 +620,7 @@ describe("MCP Prompt Registry", () => {
     assert.throws(() => getPromptMessages("missing-prompt"), /Prompt khong ton tai/);
   });
 });
+
 
 
 

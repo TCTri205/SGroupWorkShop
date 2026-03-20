@@ -1,11 +1,14 @@
 import Fuse from "fuse.js";
 import aiTeamRecords from "../../data/ai-team.json" with { type: "json" };
 import sgroupRecords from "../../data/sgroup.json" with { type: "json" };
+import sgroupSiteRecords from "../../data/sgroup-site.json" with { type: "json" };
 
 const datasets = {
   "ai-team": aiTeamRecords,
-  sgroup: sgroupRecords,
+  sgroup: [...sgroupRecords, ...sgroupSiteRecords],
 };
+
+const QUERY_STOPWORDS = new Set(["la", "gi", "vay", "ve", "cho", "toi", "minh", "hay", "biet", "them"]);
 
 /**
  * Cấu hình Fuse.js: tìm kiếm mờ đa trường với ngưỡng sai số hợp lý.
@@ -27,9 +30,60 @@ function buildFuse(records) {
   });
 }
 
+function normalizeSearchText(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
+function tokenizeQuery(query = "") {
+  return normalizeSearchText(query)
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2 && !QUERY_STOPWORDS.has(token));
+}
+
+function scoreRecord(record, tokens) {
+  const haystack = normalizeSearchText(
+    [record.title, record.summary, record.content, record.module, ...(record.keywords ?? [])]
+      .filter(Boolean)
+      .join(" ")
+  );
+  const tokenScore = tokens.reduce((count, token) => count + (haystack.includes(token) ? 1 : 0), 0);
+  const officialBoost = record.sourceType === "official" ? 2 : 0;
+  const rootBoost = record.sourceUrl === "https://sgroupvn.org/" ? 3 : 0;
+  return tokenScore + officialBoost + rootBoost;
+}
+
+function rerankRecords(records, query) {
+  const tokens = tokenizeQuery(query);
+  if (!tokens.length) {
+    return records;
+  }
+
+  return [...records].sort((left, right) => scoreRecord(right, tokens) - scoreRecord(left, tokens));
+}
+
+function searchByTokens(records, query) {
+  const tokens = tokenizeQuery(query);
+  if (!tokens.length) {
+    return [];
+  }
+
+  return records
+    .map((record) => ({ record, score: scoreRecord(record, tokens) }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.record);
+}
+
 const fuseInstances = {
   "ai-team": buildFuse(aiTeamRecords),
-  sgroup: buildFuse(sgroupRecords),
+  sgroup: buildFuse(datasets.sgroup),
 };
 
 /**
@@ -44,13 +98,19 @@ export function searchKnowledge(domain, query) {
   if (!query || !query.trim()) return [];
 
   const fuse = fuseInstances[domain];
-  if (!fuse) return [];
+  const records = datasets[domain];
+  if (!fuse || !records) return [];
 
-  const results = fuse.search(query);
-  // Lọc kết quả có score tốt (score thấp = khớp tốt hơn trong Fuse.js)
-  return results
+  const results = fuse
+    .search(query)
     .filter((r) => (r.score ?? 1) < 0.6)
     .map((r) => r.item);
+
+  if (results.length > 0) {
+    return rerankRecords(results, query);
+  }
+
+  return searchByTokens(records, query);
 }
 
 export function listAiTeamModules() {

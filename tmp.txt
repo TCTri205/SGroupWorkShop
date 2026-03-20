@@ -15,5 +15,3 @@ các agent con:
 UI:
 - bên trái là chatbot
 - bên phải là: nhúng link web vào để xem (option nếu có trang web)
-
-

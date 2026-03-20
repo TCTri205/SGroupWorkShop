@@ -1,7 +1,7 @@
-const VALID_INTENTS = new Set(["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"]);
+﻿const VALID_INTENTS = new Set(["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"]);
 
 const WEATHER_HINTS = ["thoi tiet", "weather", "nhiet do", "troi", "mua", "nang", "do am", "du bao", "bao nhieu do"];
-const NEWS_HINTS = ["tin tuc", "tin moi", "bao moi", "news", "thoi su", "headline", "tin cong nghe", "tin kinh te"];
+const NEWS_HINTS = ["tin tuc", "tin moi", "bao moi", "news", "thoi su", "headline", "ban tin", "cap nhat", "tin cong nghe", "tin kinh te"];
 const IT_HINTS = [
   "it",
   "lap trinh",
@@ -24,7 +24,6 @@ const IT_HINTS = [
 ];
 const SGROUP_HINTS = ["sgroup", "ai team", "clb", "du an", "module", "nhan su", "noi bo", "chatbot"];
 const GREETING_HINTS = ["hello", "hi", "hey", "xin chao", "chao", "chao ban", "alo"];
-const WEATHER_TIME_SUFFIX = "(?:hom nay|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)";
 
 export const INTENTS = ["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"];
 
@@ -38,12 +37,32 @@ const CITY_ALIASES = {
   "hai phong": "Hai Phong",
   hue: "Hue"
 };
+
 const NEWS_CATEGORIES = {
   "cong nghe": "cong-nghe",
   "kinh te": "kinh-te",
   "the thao": "the-thao",
   "doi song": "doi-song"
 };
+
+const NEWS_GENERIC_TERMS = new Set([
+  "tin",
+  "tuc",
+  "tin tuc",
+  "tin moi",
+  "bao moi",
+  "news",
+  "thoi su",
+  "headline",
+  "ban tin",
+  "cap nhat",
+  "moi",
+  "moi nhat",
+  "gan day",
+  "hom nay",
+  "cho toi",
+  "ve"
+]);
 
 const AGENT_BY_INTENT = {
   weather: "weather-specialist",
@@ -110,6 +129,28 @@ function titleCaseWords(value) {
     .join(" ");
 }
 
+function sanitizeWeatherLocationCandidate(candidate) {
+  const cleaned = String(candidate ?? "")
+    .trim()
+    .replace(/^(?:o|tai|cho)\s+/i, "")
+    .replace(/^(?:thanh pho|tp\.?)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[^a-z0-9]+|[^a-z0-9.-]+$/gi, "")
+    .trim();
+
+  if (
+    !cleaned ||
+    /^(?:hom nay|hien tai|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)$/.test(cleaned) ||
+    cleaned === "thoi tiet" ||
+    cleaned === "du bao thoi tiet" ||
+    cleaned === "weather"
+  ) {
+    return null;
+  }
+
+  return titleCaseWords(cleaned);
+}
+
 export function extractWeatherLocation(normalized) {
   for (const [alias, label] of Object.entries(CITY_ALIASES)) {
     if (normalized.includes(alias)) {
@@ -117,23 +158,15 @@ export function extractWeatherLocation(normalized) {
     }
   }
 
-  const boundary = new RegExp(`(?=\\s+${WEATHER_TIME_SUFFIX}\\b|$)`);
-  const weatherLeadPatterns = [
-    new RegExp(`\\b(?:thoi tiet|du bao thoi tiet|weather)\\s+(?:tai|o|cho)?\\s*([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`),
-    new RegExp(`\\b(?:o|tai|cho)\\s+([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`),
-    new RegExp(`^([a-z][a-z0-9.-]*(?:\\s+[a-z0-9.-]+){0,2}?)${boundary.source}`)
-  ];
+  const stripped = normalized
+    .replace(/\b(?:thoi tiet|du bao thoi tiet|weather)\b/g, " ")
+    .replace(/\b(?:hien tai|hom nay|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)\b/g, " ")
+    .replace(/\b(?:o|tai|cho)\b/g, " ")
+    .replace(/\b(?:thanh pho|tp)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  for (const pattern of weatherLeadPatterns) {
-    const candidate = pattern.exec(normalized)?.[1]?.trim();
-    if (!candidate || /^(?:hom nay|bay gio|luc nay|bao nhieu do|the nao|ra sao|nhu the nao|mai|ngay mai|tuan nay)$/.test(candidate) || candidate === "thoi tiet" || candidate === "du bao thoi tiet" || candidate === "weather") {
-      continue;
-    }
-
-    return titleCaseWords(candidate);
-  }
-
-  return null;
+  return sanitizeWeatherLocationCandidate(stripped);
 }
 
 export function extractNewsCategory(normalized) {
@@ -148,6 +181,36 @@ export function extractNewsCategory(normalized) {
   }
 
   return "tong-hop";
+}
+
+export function extractNewsTopic(message, normalized = normalizeText(message)) {
+  const category = extractNewsCategory(normalized);
+  const stripped = normalized
+    .replace(/\b(tin tuc|tin moi|bao moi|news|thoi su|headline|ban tin|cap nhat|tin)\b/g, " ")
+    .replace(/\b(moi nhat|gan day|hom nay)\b/g, " ")
+    .replace(/\b(cho toi|ve)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!stripped) {
+    return "";
+  }
+
+  if (stripped === category.replace(/-/g, " ")) {
+    return "";
+  }
+
+  if (NEWS_GENERIC_TERMS.has(stripped)) {
+    return "";
+  }
+
+  return stripped;
+}
+
+export function extractNewsArgs(message, normalized = normalizeText(message)) {
+  const category = extractNewsCategory(normalized);
+  const query = extractNewsTopic(message, normalized);
+  return query ? { category, query } : { category };
 }
 
 export function extractTopic(message, normalized = normalizeText(message)) {
@@ -195,18 +258,21 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
       break;
     }
     case "weather": {
-      route.args = { location: extractWeatherLocation(normalized) };
+      const detectedLocation = extractWeatherLocation(normalized);
+      route.args = { location: detectedLocation ?? "Da Nang" };
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = route.args.location
+        route.reasoningSummary = detectedLocation
           ? "Cau hoi tap trung vao thoi tiet theo dia diem."
-          : "Cau hoi ve thoi tiet nhung chua du dia diem de goi tool mot cach an toan.";
+          : "Cau hoi ve thoi tiet nhung khong neu dia diem, mac dinh su dung Da Nang.";
       }
       break;
     }
     case "news": {
-      route.args = { category: extractNewsCategory(normalized) };
+      route.args = extractNewsArgs(message, normalized);
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = "Cau hoi yeu cau tong hop tin tuc theo chu de.";
+        route.reasoningSummary = route.args.query
+          ? "Cau hoi yeu cau tim tin tuc theo chu de cu the."
+          : "Cau hoi yeu cau tong hop tin tuc theo danh muc.";
       }
       break;
     }

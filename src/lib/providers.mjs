@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { cacheGet, cacheSet } from "./cache.mjs";
 
 const WEATHER_TTL = 600;
@@ -21,6 +21,8 @@ const NEWS_CATEGORY_MAP = {
   "doi-song": "health",
   "tong-hop": "general"
 };
+
+const QUERY_STOPWORDS = new Set(["tin", "tuc", "moi", "nhat", "cap", "nhat", "ve", "hom", "nay", "ban", "tin", "thoi", "su"]);
 
 function buildCitation(title, url) {
   return { title, url };
@@ -48,6 +50,41 @@ function extractRssTag(item, tag) {
 
   const value = stripHtml(match[1] ?? "");
   return value || null;
+}
+
+function normalizeSearchText(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
+function tokenizeQuery(query = "") {
+  return normalizeSearchText(query)
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2 && !QUERY_STOPWORDS.has(token));
+}
+
+function normalizeNewsRequest(request) {
+  if (typeof request === "string") {
+    return { category: request || "tong-hop", query: "" };
+  }
+
+  const category = String(request?.category ?? "tong-hop").trim() || "tong-hop";
+  const query = String(request?.query ?? request?.topic ?? "").trim();
+  return { category, query };
+}
+
+function formatNewsHeading({ category, query, sourceLabel }) {
+  if (query) {
+    return `Cập nhật tin tức mới nhất về chủ đề "${query}" từ ${sourceLabel}:`;
+  }
+
+  return `Cập nhật tin tức mới nhất theo danh mục ${category} từ ${sourceLabel}:`;
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
@@ -79,9 +116,11 @@ function buildFallbackResult(message, webUrl, fallbackUsed = true, error) {
   };
 }
 
-async function fetchNewsFromNewsApi(category, apiKey) {
-  const engCategory = NEWS_CATEGORY_MAP[category] ?? "general";
-  const url = `https://newsapi.org/v2/top-headlines?category=${engCategory}&language=vi&pageSize=5&apiKey=${apiKey}`;
+async function fetchNewsFromNewsApi(request, apiKey) {
+  const { category, query } = normalizeNewsRequest(request);
+  const url = query
+    ? `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=vi&pageSize=5&sortBy=publishedAt&apiKey=${apiKey}`
+    : `https://newsapi.org/v2/top-headlines?category=${NEWS_CATEGORY_MAP[category] ?? "general"}&language=vi&pageSize=5&apiKey=${apiKey}`;
   const response = await fetchWithTimeout(url);
 
   if (!response.ok) {
@@ -93,7 +132,9 @@ async function fetchNewsFromNewsApi(category, apiKey) {
 
   if (articles.length === 0) {
     return {
-      message: `Dạ, hiện tại mình không tìm thấy tin tức nào cho danh mục "${category}".`,
+      message: query
+        ? `Dạ, hiện tại mình không tìm thấy tin tức nào khớp chủ đề "${query}".`
+        : `Dạ, hiện tại mình không tìm thấy tin tức nào cho danh mục "${category}".`,
       citations: [],
       webUrl: "",
       fallbackUsed: false
@@ -101,18 +142,19 @@ async function fetchNewsFromNewsApi(category, apiKey) {
   }
 
   const headlines = articles
-    .map((article, index) => `${index + 1}. **[${article.title}](${article.url})** - *${article.source?.name ?? ""}*`)
+    .map((article, index) => `${index + 1}. **[${article.title}](${article.url})** - *${article.source?.name ?? "NewsAPI"}*`)
     .join("\n");
 
   return {
-    message: `Đây là các tin tức mới nhất về chủ đề ${engCategory}:\n\n${headlines}`,
+    message: `${formatNewsHeading({ category, query, sourceLabel: "NewsAPI" })}\n\n${headlines}`,
     citations: articles.map((article) => buildCitation(article.title, article.url)),
     webUrl: articles[0]?.url ?? "",
     fallbackUsed: false
   };
 }
 
-async function fetchNewsFromRss(category) {
+async function fetchNewsFromRss(request) {
+  const { category, query } = normalizeNewsRequest(request);
   const feedUrl = RSS_FEEDS[category] ?? RSS_FEEDS["tong-hop"];
   const response = await fetchWithTimeout(feedUrl);
 
@@ -121,35 +163,48 @@ async function fetchNewsFromRss(category) {
   }
 
   const xml = await response.text();
+  const queryTokens = tokenizeQuery(query);
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
-    .slice(0, 5)
+    .slice(0, 15)
     .map((match) => {
       const item = match[1];
+      const title = extractRssTag(item, "title");
+      const url = extractRssTag(item, "link");
+      const description = extractRssTag(item, "description") ?? "";
+      const searchable = normalizeSearchText(`${title ?? ""} ${description}`);
+      const score = queryTokens.reduce((count, token) => count + (searchable.includes(token) ? 1 : 0), 0);
       return {
-        title: extractRssTag(item, "title"),
-        url: extractRssTag(item, "link"),
+        title,
+        url,
+        description,
+        score,
         source: "RSS"
       };
     })
     .filter((item) => item.title && item.url);
 
-  if (items.length === 0) {
+  const filteredItems = queryTokens.length > 0 ? items.filter((item) => item.score > 0).sort((a, b) => b.score - a.score) : items;
+  const topItems = filteredItems.slice(0, 5);
+
+  if (topItems.length === 0) {
     return {
-      message: `Dạ, mình không tìm thấy tin tức nào cho danh mục "${category}" từ nguồn RSS.`,
+      message: query
+        ? `Dạ, mình chưa tìm thấy bài RSS nào khớp rõ với chủ đề "${query}". Hệ thống sẽ giữ nguồn tổng hợp an toàn để bạn mở rộng tra cứu.`
+        : `Dạ, mình không tìm thấy tin tức nào cho danh mục "${category}" từ nguồn RSS.`,
       citations: [],
       webUrl: feedUrl,
       fallbackUsed: true
     };
   }
 
-  const headlines = items
+  const headlines = topItems
     .map((item, index) => `${index + 1}. **[${item.title}](${item.url})** - *${item.source}*`)
     .join("\n");
 
   return {
-    message: `Cập nhật tin tức mới nhất từ RSS (${category}):\n\n${headlines}`,
-    citations: items.map((item) => buildCitation(item.title, item.url)),
-    webUrl: items[0]?.url ?? feedUrl,
+    message: `${formatNewsHeading({ category, query, sourceLabel: "RSS" })}\n\n${headlines}`,
+    citations: topItems.map((item) => buildCitation(item.title, item.url)),
+    webUrl: topItems[0]?.url ?? feedUrl,
     fallbackUsed: true
   };
 }
@@ -163,7 +218,7 @@ export async function queryWeather(location) {
 
   if (!apiKey) {
     return {
-      message: `[Dữ liệu mẫu] Thời tiết tại ${location}: Trời nắng nhẹ, nhiệt độ khoảng 31°C, độ ẩm 62%. (Lưu ý: Hệ thống chưa cấu hình OPENWEATHER_API_KEY)`,
+      message: `[Dữ liệu mẫu] Thời tiết tại ${location}: Trời nắng nhẹ, nhiệt độ khoảng 31°C, độ ẩm 62%. (Lưu ý: hệ thống chưa cấu hình OPENWEATHER_API_KEY)`,
       citations: [buildCitation("OpenWeatherMap", "https://openweathermap.org/")],
       webUrl: "https://openweathermap.org/",
       fallbackUsed: true
@@ -179,7 +234,7 @@ export async function queryWeather(location) {
     }
 
     const data = await response.json();
-    const desc = data.weather?.[0]?.description ?? "khong ro";
+    const desc = data.weather?.[0]?.description ?? "không rõ";
     const temp = data.main?.temp ?? "N/A";
     const humidity = data.main?.humidity ?? "N/A";
     const feelsLike = data.main?.feels_like ?? "N/A";
@@ -205,8 +260,9 @@ export async function queryWeather(location) {
   }
 }
 
-export async function queryNews(category) {
-  const cacheKey = `news:${category}`;
+export async function queryNews(request) {
+  const normalizedRequest = normalizeNewsRequest(request);
+  const cacheKey = `news:${normalizedRequest.category}:${normalizeSearchText(normalizedRequest.query)}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -215,24 +271,24 @@ export async function queryNews(category) {
 
   try {
     result = apiKey
-      ? await fetchNewsFromNewsApi(category, apiKey)
-      : await fetchNewsFromRss(category);
+      ? await fetchNewsFromNewsApi(normalizedRequest, apiKey)
+      : await fetchNewsFromRss(normalizedRequest);
   } catch (primaryError) {
     if (apiKey) {
       try {
-        result = await fetchNewsFromRss(category);
+        result = await fetchNewsFromRss(normalizedRequest);
       } catch (secondaryError) {
         result = buildFallbackResult(
-          `[Fallback] Hiện tại mình không thể lấy tin tức cho danh mục "${category}".`,
-          RSS_FEEDS[category] ?? RSS_FEEDS["tong-hop"],
+          `[Fallback] Hiện tại mình không thể lấy tin tức cho ${normalizedRequest.query ? `chủ đề "${normalizedRequest.query}"` : `danh mục "${normalizedRequest.category}"`}.`,
+          RSS_FEEDS[normalizedRequest.category] ?? RSS_FEEDS["tong-hop"],
           true,
           secondaryError?.message ?? primaryError?.message
         );
       }
     } else {
       result = buildFallbackResult(
-        `[Dữ liệu mẫu] Tin tức về "${category}": Không thể tải RSS feed và hệ thống chưa cấu hình NEWS_API_KEY.`,
-        RSS_FEEDS[category] ?? RSS_FEEDS["tong-hop"],
+        `[Dữ liệu mẫu] Tin tức về ${normalizedRequest.query ? `chủ đề "${normalizedRequest.query}"` : `danh mục "${normalizedRequest.category}"`}: Không thể tải RSS feed và hệ thống chưa cấu hình NEWS_API_KEY.`,
+        RSS_FEEDS[normalizedRequest.category] ?? RSS_FEEDS["tong-hop"],
         true,
         primaryError?.message
       );
@@ -324,6 +380,7 @@ export async function queryWebSearch(query) {
     };
   }
 }
+
 export async function queryOfficialSource(query) {
   const lower = query.toLowerCase();
   const target = lower.includes("facebook")
@@ -337,6 +394,3 @@ export async function queryOfficialSource(query) {
     fallbackUsed: true
   };
 }
-
-
-

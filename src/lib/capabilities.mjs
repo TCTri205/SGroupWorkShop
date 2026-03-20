@@ -1,4 +1,4 @@
-import { searchKnowledge } from "./knowledge.mjs";
+﻿import { searchKnowledge } from "./knowledge.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
 
 function uniqueCitations(citations = []) {
@@ -40,8 +40,9 @@ export async function getWeatherRaw(location) {
   };
 }
 
-export async function getNewsRaw(category) {
-  const result = await queryNews(category);
+export async function getNewsRaw(request) {
+  const result = await queryNews(request);
+  const normalizedRequest = typeof request === "string" ? { category: request } : { ...(request ?? {}) };
   return {
     kind: "news",
     summary: result.message,
@@ -49,7 +50,7 @@ export async function getNewsRaw(category) {
     citations: uniqueCitations(result.citations),
     webUrl: result.webUrl,
     fallbackUsed: result.fallbackUsed,
-    metadata: { category }
+    metadata: normalizedRequest
   };
 }
 
@@ -72,8 +73,8 @@ export async function searchSgroupKnowledgeRaw(query) {
   const items = [...buildInternalItems("ai-team", aiTeamResults), ...buildInternalItems("sgroup", sgroupResults)];
   const summary =
     items.length > 0
-      ? `Dạ, mình tìm thấy ${items.length} bản ghi trí thức nội bộ liên quan đến "${query}".`
-      : `Dạ, hiện mình chưa tìm thấy bản ghi trí thức nội bộ nào phù hợp với từ khóa "${query}".`;
+      ? `Dạ, mình tìm thấy ${items.length} bản ghi tri thức nội bộ liên quan đến "${query}".`
+      : `Dạ, hiện mình chưa tìm thấy bản ghi tri thức nội bộ nào phù hợp với từ khóa "${query}".`;
 
   return {
     kind: "sgroup-knowledge",

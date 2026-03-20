@@ -1,4 +1,4 @@
-import { searchKnowledge } from "./knowledge.mjs";
+﻿import { searchKnowledge } from "./knowledge.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
 
 function formatConfidence(value) {
@@ -67,7 +67,7 @@ export async function handleWeatherAgent(args, route) {
 }
 
 export async function handleNewsAgent(args, route) {
-  const result = await queryNews(args.category);
+  const result = await queryNews(args);
   return buildResponse({
     message: `## Tin tuc moi nhat\n\n${result.message}\n\n[Nguon tham khao](${result.webUrl})`,
     citations: result.citations,
