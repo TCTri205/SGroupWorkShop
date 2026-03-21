@@ -1,4 +1,4 @@
-﻿import { after, describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 
@@ -238,6 +238,7 @@ describe("Web server", () => {
     assert.equal(payload.response.mcp.toolNames[0], "get_news");
     assert.ok(Array.isArray(payload.graph.executedNodes));
     assert.ok(Array.isArray(payload.graph.toolCalls));
+    assert.ok(Array.isArray(payload.graph.warnings));
     assert.equal(typeof payload.graph.usedFallbackRouter, "boolean");
     assert.equal(payload.graph.executedNodes[0], "normalize_input");
     assert.match(payload.graph.executedNodes.join(","), /plan_tool_calls/);
@@ -276,3 +277,4 @@ describe("Web server", () => {
     assert.equal(response.status, 403);
   });
 });
+

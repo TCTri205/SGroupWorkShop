@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { invokeAssistantGraph } from "./lib/langgraph/assistant-graph.mjs";
+import { initializeClients } from "./lib/mcp-client-manager.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -122,6 +123,7 @@ export function createServer() {
 }
 
 async function main() {
+  await initializeClients();
   const server = createServer();
   const port = Number(process.env.PORT || 3000);
 

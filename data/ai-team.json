@@ -43,5 +43,76 @@
     "sourceType": "static",
     "sourceUrl": "",
     "module": "knowledge-assistant"
+  },
+  {
+    "domain": "ai-team",
+    "title": "ASR Translate TTS Project",
+    "summary": "Hệ thống xử lý tiếng nói đầu-cuối: nhận dạng (ASR), dịch (Translation) và tổng hợp giọng nói (TTS).",
+    "keywords": [
+      "asr",
+      "tts",
+      "translate",
+      "whisper",
+      "vits",
+      "xử lý giọng nói",
+      "giọng nói"
+    ],
+    "content": "Dự án ASR_Translate_TTS xây dựng pipeline từ huấn luyện đến triển khai. Tích hợp Whisper (ASR) với QLoRA, mô hình dịch thuật và VITS (TTS). Hạ tầng chạy trên Modal cho batch và realtime (WebSocket) inference.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "asr-translate-tts",
+    "technical_doc": "docs_ASR_TRANSLATE_TTS_SPEC_Version1.md"
+  },
+  {
+    "domain": "ai-team",
+    "title": "Video Search and Indexing Project",
+    "summary": "Hệ thống hệ thống tìm kiếm vị trí video thời gian thực dựa trên hình ảnh và văn bản.",
+    "keywords": [
+      "video search",
+      "clip",
+      "embedding",
+      "index video",
+      "tìm kiếm video"
+    ],
+    "content": "Dự án Project_AI_Sgroup dùng mô hình ngôn ngữ - hình ảnh đa phương thức CLIP (clip-ViT-B-32) để trích xuất tensor embedding cho frame video và lưu vào database. Phục vụ việc nhảy đến thời điểm video cụ thể theo text hoặc hình ảnh, kết hợp FAISS index cho tốc độ cực cao.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "video-search",
+    "technical_doc": "docs_PROJECT_AI_SGROUP_SPEC_Version4.md"
+  },
+  {
+    "domain": "ai-team",
+    "title": "YouTube Video Recommendation System",
+    "summary": "Hệ thống thu thập và kiến trúc gợi ý video YouTube dựa trên đồ thị dị thể (Heterogeneous Graph).",
+    "keywords": [
+      "recommendation",
+      "neo4j",
+      "graph",
+      "youtube",
+      "gợi ý video"
+    ],
+    "content": "Dự án Recommendationsystem gọi trực tiếp dữ liệu từ YouTube Data API v3, xây dựng đồ thị với PyTorch Geometric và lưu trữ dữ liệu lên cơ sở kết nối Neo4j. Cung cấp API gợi ý video qua truy vấn Cypher dựa trên lịch sử xem, quan hệ tag/category và độ tương đồng ngữ nghĩa bằng SentenceTransformers. Thực hiện bởi Lưu Hoàng Phúc, Nguyễn Thị Sương Mai.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "recommendation-system",
+    "technical_doc": "docs_PROJECT_OVERVIEW.md"
+  },
+  {
+    "domain": "ai-team",
+    "title": "AI Video Summary Website",
+    "summary": "Ứng dụng web tự động nhận diện và tóm tắt nội dung video, đồng thời xuất video highlight nổi bật.",
+    "keywords": [
+      "video summary",
+      "highlight",
+      "tóm tắt video",
+      "whisper",
+      "blip",
+      "qwen"
+    ],
+    "content": "Dự án xây dựng website tóm tắt video. Pipeline FastAPI điều hướng trích xuất audio/frames -> xử lý gọi file model remote qua ngrok server. Transcript tạo từ Whisper, mô tả ảnh tạo từ BLIP còn tóm tắt truyện ngắn sinh bởi Qwen 3B. Đội ngũ phát triển: Trương Công Trí, Trần Công Đức.",
+    "sourceType": "static",
+    "sourceUrl": "",
+    "module": "video-summary",
+    "technical_doc": "docs_VIDEO_SUMMARY_SYSTEM_SPEC.md"
   }
 ]

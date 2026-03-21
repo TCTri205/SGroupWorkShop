@@ -4,6 +4,8 @@
 
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { z } from "zod";
 import { cacheClear } from "../src/lib/cache.mjs";
 import { searchKnowledge, listAiTeamModules } from "../src/lib/knowledge.mjs";
 import {
@@ -15,7 +17,7 @@ import {
 import { PROMPTS, getPromptMessages } from "../src/mcp-server.mjs";
 import { queryWeather, queryNews, queryWebSearch } from "../src/lib/providers.mjs";
 import { invokeAssistantGraph } from "../src/lib/langgraph/assistant-graph.mjs";
-import { resetAssistantLlmAdapterForTests, setAssistantLlmAdapterForTests } from "../src/lib/langgraph/assistant-llm.mjs";
+import { resetAssistantLlmAdapterForTests, selectExternalToolsForRoute, setAssistantLlmAdapterForTests } from "../src/lib/langgraph/assistant-llm.mjs";
 import { createRouteFromIntent } from "../src/lib/router.mjs";
 
 const originalFetch = global.fetch;
@@ -219,6 +221,45 @@ afterEach(() => {
   resetAssistantLlmAdapterForTests();
 });
 
+
+describe("Planner Tool Visibility", () => {
+  const externalTools = [
+    { name: "brave_web_search", inputSchema: { required: ["query"] } },
+    { name: "resolve-library-id", inputSchema: { required: ["query", "libraryName"] } },
+    { name: "query-docs", inputSchema: { required: ["libraryId", "query"] } },
+    { name: "search_repositories", inputSchema: { required: ["query"] } }
+  ];
+
+  it("should hide external tools for weather intent", () => {
+    const visibleTools = selectExternalToolsForRoute({
+      message: "Thoi tiet Da Nang",
+      route: { intent: "weather" },
+      externalTools
+    });
+
+    assert.deepStrictEqual(visibleTools, []);
+  });
+
+  it("should expose only brave search for latest version lookups", () => {
+    const visibleTools = selectExternalToolsForRoute({
+      message: "Phien ban moi nhat cua Python la gi?",
+      route: { intent: "it-research" },
+      externalTools
+    });
+
+    assert.deepStrictEqual(visibleTools.map((tool) => tool.name), ["brave_web_search"]);
+  });
+
+  it("should expose only github tools for github intent", () => {
+    const visibleTools = selectExternalToolsForRoute({
+      message: "Tim repo LangGraph tren GitHub",
+      route: { intent: "github" },
+      externalTools
+    });
+
+    assert.deepStrictEqual(visibleTools.map((tool) => tool.name), ["search_repositories"]);
+  });
+});
 describe("Knowledge Module (Fuzzy Search)", () => {
   describe("searchKnowledge", () => {
     it("should find AI Team records by keyword", () => {
@@ -516,7 +557,108 @@ describe("Integration Tests", () => {
     assert.equal(payload.route.intent, "weather");
     assert.equal(payload.graph.usedFallbackRouter, false);
     assert.equal(payload.graph.sessionId, "test-session");
+    assert.ok(Array.isArray(payload.graph.warnings));
     assert.match(payload.response.message, /OPENWEATHER_API_KEY|thoi tiet|Th?i ti?t/i);
+  });
+
+  it("should recover missing weather args from route without hard error", async () => {
+    setAssistantLlmAdapterForTests({
+      async route() {
+        return {
+          intent: "weather",
+          agent: "weather-specialist",
+          confidence: 0.95,
+          reasoningSummary: "LLM route to weather.",
+          args: { location: "Da Nang" }
+        };
+      },
+      async plan() {
+        return {
+          toolCalls: [{ name: "get_weather", args: {}, reason: "Need weather data." }],
+          planningSummary: "Use weather tool."
+        };
+      },
+      async synthesize({ results, errors }) {
+        return { message: errors.length && !results.length ? errors[0] : "Weather recovered" };
+      }
+    });
+
+    const payload = await invokeAssistantGraph({ message: "Thoi tiet Da Nang", channel: "web", sessionId: "weather-recover" });
+
+    assert.equal(payload.route.intent, "weather");
+    assert.equal(payload.graph.plannerSource, "llm");
+    assert.deepStrictEqual(payload.graph.errors, []);
+    assert.equal(payload.graph.toolCalls[0].args.location, "Da Nang");
+    assert.match(payload.graph.warnings[0], /get_weather/);
+    assert.match(payload.response.statusSteps.join(" "), /tham số tool từ route/i);
+
+    setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
+  });
+
+  it("should recover missing sgroup query from route without hard error", async () => {
+    setAssistantLlmAdapterForTests({
+      async route(message) {
+        return {
+          intent: "sgroup-knowledge",
+          agent: "sgroup-specialist",
+          confidence: 0.9,
+          reasoningSummary: "LLM route to internal knowledge.",
+          args: { query: String(message).trim() }
+        };
+      },
+      async plan() {
+        return {
+          toolCalls: [{ name: "search_sgroup_knowledge", args: {}, reason: "Need internal knowledge." }],
+          planningSummary: "Use SGroup knowledge."
+        };
+      },
+      async synthesize({ results, errors }) {
+        return { message: errors.length && !results.length ? errors[0] : results[0]?.summary || "SGroup recovered" };
+      }
+    });
+
+    const payload = await invokeAssistantGraph({ message: "Sgroup la gi?", channel: "web", sessionId: "sgroup-recover" });
+
+    assert.equal(payload.route.intent, "sgroup-knowledge");
+    assert.deepStrictEqual(payload.graph.errors, []);
+    assert.equal(payload.graph.plannerSource, "llm");
+    assert.equal(payload.graph.toolCalls[0].args.query, "Sgroup la gi?");
+    assert.match(payload.graph.warnings[0], /search_sgroup_knowledge/);
+
+    setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
+  });
+
+  it("should downgrade invalid planner version lookup to warning when fallback succeeds", async () => {
+    setAssistantLlmAdapterForTests({
+      async route(message) {
+        return {
+          intent: "it-research",
+          agent: "it-specialist",
+          confidence: 0.92,
+          reasoningSummary: "LLM route to IT research.",
+          args: { topic: String(message).trim() }
+        };
+      },
+      async plan() {
+        return {
+          toolCalls: [{ name: "brave_web_search", args: {}, reason: "Need latest version info." }],
+          planningSummary: "Use brave search."
+        };
+      },
+      async synthesize({ toolCalls }) {
+        return { message: `Recovered with ${toolCalls[0]?.name || "none"}` };
+      }
+    });
+
+    const payload = await invokeAssistantGraph({ message: "phien ban moi nhat cua Python?", channel: "web", sessionId: "python-recover" });
+
+    assert.equal(payload.route.intent, "it-research");
+    assert.deepStrictEqual(payload.graph.errors, []);
+    assert.equal(payload.graph.plannerSource, "fallback");
+    assert.equal(payload.graph.toolCalls[0].name, "search_it_knowledge");
+    assert.match(payload.graph.warnings[0], /brave_web_search/);
+
+    setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
   });
 
   it("should return a greeting guidance message for general hello input", async () => {
@@ -542,6 +684,27 @@ describe("Integration Tests", () => {
     assert.equal(payload.graph.plannerSource, "error");
     assert.match(payload.response.message, /GOOGLE_API_KEY/);
     setAssistantLlmAdapterForTests(buildMockAssistantAdapter());
+  });
+
+  it("should support structured output planner schemas with dynamic args under zod v4", () => {
+    const toolCallSchema = z.object({
+      name: z.string().trim().min(1),
+      args: z.object({}).catchall(z.unknown()).default({}),
+      reason: z.string().trim().min(1)
+    });
+    const planSchema = z.object({
+      toolCalls: z.array(toolCallSchema),
+      planningSummary: z.string().trim().min(1)
+    });
+
+    const model = new ChatGoogleGenerativeAI({
+      apiKey: "test-key",
+      model: "gemini-2.5-flash"
+    });
+
+    assert.doesNotThrow(() => {
+      model.withStructuredOutput(planSchema, { name: "ToolPlan" });
+    });
   });
 
   it("should create safe general route for invalid intent", () => {
@@ -620,6 +783,9 @@ describe("MCP Prompt Registry", () => {
     assert.throws(() => getPromptMessages("missing-prompt"), /Prompt khong ton tai/);
   });
 });
+
+
+
 
 
 

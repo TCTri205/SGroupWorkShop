@@ -12,6 +12,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { TOOLS, RESOURCES, executeTool, handleReadResource } from "./lib/mcp-runtime.mjs";
+import { initializeClients } from "./lib/mcp-client-manager.mjs";
 
 export const PROMPTS = [
   {
@@ -245,6 +246,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 });
 
 async function main() {
+  await initializeClients();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("SGroup MCP Server running on stdio");

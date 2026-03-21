@@ -4,8 +4,8 @@ import sgroupRecords from "../../data/sgroup.json" with { type: "json" };
 import sgroupSiteRecords from "../../data/sgroup-site.json" with { type: "json" };
 
 const datasets = {
-  "ai-team": aiTeamRecords,
-  sgroup: [...sgroupRecords, ...sgroupSiteRecords],
+  "ai-team": aiTeamRecords.map(r => ({ ...r, sourceUrl: r.sourceUrl || r.url })),
+  sgroup: [...sgroupRecords, ...sgroupSiteRecords].map(r => ({ ...r, sourceUrl: r.sourceUrl || r.url })),
 };
 
 const QUERY_STOPWORDS = new Set(["la", "gi", "vay", "ve", "cho", "toi", "minh", "hay", "biet", "them"]);
@@ -82,7 +82,7 @@ function searchByTokens(records, query) {
 }
 
 const fuseInstances = {
-  "ai-team": buildFuse(aiTeamRecords),
+  "ai-team": buildFuse(datasets["ai-team"]),
   sgroup: buildFuse(datasets.sgroup),
 };
 

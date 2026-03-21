@@ -1,5 +1,7 @@
-﻿import { searchKnowledge } from "./knowledge.mjs";
+import { searchKnowledge } from "./knowledge.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 function uniqueCitations(citations = []) {
   const seen = new Set();
@@ -103,4 +105,28 @@ export function pickPrimaryWebUrl(results = []) {
 
 export function summarizeFallbackUsage(results = []) {
   return results.some((result) => result.fallbackUsed);
+}
+
+export async function readProjectDocumentRaw(filename) {
+  try {
+    const docsDir = path.resolve(process.cwd(), "data", "docs");
+    const filePath = path.resolve(docsDir, filename);
+
+    if (!filePath.startsWith(docsDir)) {
+      throw new Error(`Invalid access attempt for file: ${filename}`);
+    }
+
+    const content = await fs.readFile(filePath, "utf-8");
+    return {
+      kind: "project-document",
+      summary: `Nội dung tài liệu kỹ thuật ${filename}.`,
+      items: [content],
+      citations: [],
+      webUrl: "",
+      fallbackUsed: false,
+      metadata: { filename }
+    };
+  } catch (error) {
+    throw new Error(`Cannot read project document ${filename}: ${error.message}`);
+  }
 }
