@@ -21,3 +21,10 @@ Thumbs.db
 # Temporary
 tmp/
 *.tmp
+
+# Local debug artifacts
+*_output.txt
+test_*_debug.txt
+test_mcp_full.txt
+mcp_tools_full.txt
+fix_app.js
