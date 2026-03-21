@@ -13,6 +13,9 @@ import {
 import { isGreetingMessage, routeMessage } from "../router.mjs";
 import { planToolCallsWithLlm, routeIntentWithLlm, synthesizeAnswerWithLlm } from "./assistant-llm.mjs";
 import { getAvailableExternalTools, executeExternalTool } from "../mcp-client-manager.mjs";
+import { cacheGet, cacheSet } from "../cache.mjs";
+
+const MAX_HISTORY_MESSAGES = 10;
 
 const AGENT_BY_INTENT = {
   weather: "weather-specialist",
@@ -439,6 +442,9 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
   const warnings = [];
   const decisionNotes = [];
 
+  // Load history
+  const history = cacheGet(`history_${safeSessionId}`) || [];
+
   if (!normalizedMessage) {
     decisionNotes.push("empty_general_fast_path");
     return buildGeneralFastPathPayload({
@@ -469,7 +475,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
   let usedFallbackRouter = false;
   let routeSource = "llm";
   try {
-    const routeDecision = await routeIntentWithLlm(normalizedMessage);
+    const routeDecision = await routeIntentWithLlm({ message: normalizedMessage, history });
     route = normalizeRoute(routeDecision, normalizedMessage);
     executedNodes.push("route_intent_llm");
     decisionNotes.push(`intent=${route.intent}`);
@@ -502,7 +508,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
   let plannerSource = "llm";
   const fallbackToolCalls = buildFallbackToolCalls(route);
   try {
-    const plan = await planToolCallsWithLlm({ message: normalizedMessage, route, externalTools: getAvailableExternalTools() });
+    const plan = await planToolCallsWithLlm({ message: normalizedMessage, route, externalTools: getAvailableExternalTools(), history });
     const normalizedToolCalls = plan.toolCalls.map((toolCall) => normalizeToolCall(toolCall, route, warnings, decisionNotes));
     executedNodes.push("plan_tool_calls_llm");
 
@@ -565,7 +571,8 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
       route,
       toolCalls,
       results,
-      errors
+      errors,
+      history
     });
     executedNodes.push("synthesize_answer_llm");
   } catch (error) {
@@ -587,7 +594,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
   const webUrl = pickPrimaryWebUrl(results);
   const fallbackUsed = summarizeFallbackUsage(results);
 
-  return {
+  const result = {
     route,
     response: {
       message: synthesis.message,
@@ -609,4 +616,12 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
       channel
     }
   };
+
+  // Save updated history
+  const updatedHistory = [...history, { role: "user", content: normalizedMessage }, { role: "assistant", content: synthesis.message }].slice(
+    -MAX_HISTORY_MESSAGES * 2
+  );
+  cacheSet(`history_${safeSessionId}`, updatedHistory, 3600); // 1 hour TTL
+
+  return result;
 }

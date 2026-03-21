@@ -148,7 +148,7 @@ async function invokeText(instruction) {
 
 function buildDefaultAdapter() {
   return {
-    async route(message) {
+    async route(input) {
       const instruction = [
         "You classify user messages for a Vietnamese assistant.",
         "Return structured output only.",
@@ -163,14 +163,15 @@ function buildDefaultAdapter() {
         "- Choose it-research for technology, software, infrastructure, programming, architecture, databases, cache, Redis, APIs, MCP, LangGraph, AI engineering, or explainers about IT concepts.",
         "- Use general only when no specialist intent is appropriate.",
         "- Extract only args that are explicitly supported by the intent.",
-        `User message: ${JSON.stringify(String(message ?? ""))}`
+        `Conversation history:\n${JSON.stringify(input.history ?? [])}`,
+        `User message: ${JSON.stringify(String(input.message ?? ""))}`
       ].join("\n");
 
       return invokeStructuredOutput(ROUTE_SCHEMA, "RouteDecision", instruction);
     },
 
-    async plan({ message, route, externalTools = [] }) {
-      const visibleExternalTools = selectExternalToolsForRoute({ message, route, externalTools });
+    async plan(input) {
+      const visibleExternalTools = selectExternalToolsForRoute({ message: input.message, route: input.route, externalTools: input.externalTools });
       const extToolDescs = visibleExternalTools
         .map((tool) => `- ${tool.name}(args: ${JSON.stringify(tool.inputSchema?.properties || {})}) - ${tool.description}`)
         .join("\n");
@@ -202,14 +203,15 @@ function buildDefaultAdapter() {
         "- If you need deeper technical details about an AI project after finding its filename in search_sgroup_knowledge, use read_project_document.",
         "- For mixed-research, call both search_it_knowledge and search_sgroup_knowledge.",
         "- Only use tools from the Available tools list.",
-        `Route: ${JSON.stringify(route)}`,
-        `User message: ${JSON.stringify(String(message ?? ""))}`
+        `Route: ${JSON.stringify(input.route)}`,
+        `Conversation history:\n${JSON.stringify(input.history ?? [])}`,
+        `User message: ${JSON.stringify(String(input.message ?? ""))}`
       ].join("\n");
 
       return invokeStructuredOutput(PLAN_SCHEMA, "ToolPlan", instruction);
     },
 
-    async synthesize({ message, route, toolCalls, results, errors }) {
+    async synthesize(input) {
       const instruction = [
         "You are a Vietnamese assistant synthesizing the final answer for a chat UI.",
         "Write concise Vietnamese with diacritics.",
@@ -217,11 +219,12 @@ function buildDefaultAdapter() {
         "If no tools were called and the route is general, briefly state supported capabilities and ask for a more specific question.",
         "If no tools were called and the route is weather without location, ask for a location.",
         "If there are tool errors and no successful results, explain the failure clearly.",
-        `User message: ${JSON.stringify(String(message ?? ""))}`,
-        `Route: ${JSON.stringify(route)}`,
-        `Tool calls: ${JSON.stringify(toolCalls ?? [])}`,
-        `Tool results: ${JSON.stringify(results ?? [])}`,
-        `Tool errors: ${JSON.stringify(errors ?? [])}`,
+        `Conversation history:\n${JSON.stringify(input.history ?? [])}`,
+        `User message: ${JSON.stringify(String(input.message ?? ""))}`,
+        `Route: ${JSON.stringify(input.route)}`,
+        `Tool calls: ${JSON.stringify(input.toolCalls ?? [])}`,
+        `Tool results: ${JSON.stringify(input.results ?? [])}`,
+        `Tool errors: ${JSON.stringify(input.errors ?? [])}`,
         "Return only the final answer text."
       ].join("\n");
 
@@ -235,8 +238,8 @@ function getAdapter() {
   return adapterOverride ?? buildDefaultAdapter();
 }
 
-export async function routeIntentWithLlm(message) {
-  return ROUTE_SCHEMA.parse(await getAdapter().route(message));
+export async function routeIntentWithLlm(input) {
+  return ROUTE_SCHEMA.parse(await getAdapter().route(input));
 }
 
 export async function planToolCallsWithLlm(input) {

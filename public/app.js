@@ -182,14 +182,18 @@ form.addEventListener("submit", async (event) => {
   input.value = "";
   input.style.height = "auto";
 
-  typingIndicator.classList.remove("is-hidden");
-  messages.scrollTop = messages.scrollHeight;
+  // Session management
+  let sessionId = localStorage.getItem("sgroup_session_id");
+  if (!sessionId) {
+    sessionId = "sess_" + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem("sgroup_session_id", sessionId);
+  }
 
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message, sessionId })
     });
 
     if (!res.ok) {
