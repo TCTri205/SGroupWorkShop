@@ -24,7 +24,7 @@ export function formatErrorContent(message) {
 
 function buildKnowledgeSummary(records) {
   if (!records.length) {
-    return "Khong tim thay ket qua phu hop.";
+    return "Không tìm thấy kết quả phù hợp.";
   }
 
   return records
@@ -36,57 +36,57 @@ function buildKnowledgeSummary(records) {
 export const TOOLS = [
   {
     name: "get_weather",
-    description: "Lay thong tin thoi tiet theo dia diem.",
+    description: "Lấy thông tin thời tiết theo địa điểm.",
     inputSchema: {
       type: "object",
       properties: {
-        location: { type: "string", description: "Ten thanh pho hoac dia diem." }
+        location: { type: "string", description: "Tên thành phố hoặc địa điểm." }
       },
       required: ["location"]
     }
   },
   {
     name: "get_news",
-    description: "Lay tin tuc theo danh muc hoac chu de.",
+    description: "Lấy tin tức theo danh mục hoặc chủ đề.",
     inputSchema: {
       type: "object",
       properties: {
-        category: { type: "string", description: "Danh muc tin tuc, vi du cong-nghe." },
-        query: { type: "string", description: "Chu de tin tuc cu the, vi du chien tranh Ukraine." }
+        category: { type: "string", description: "Danh mục tin tức, ví dụ cong-nghe." },
+        query: { type: "string", description: "Chủ đề tin tức cụ thể, ví dụ chiến tranh Ukraine." }
       },
       anyOf: [{ required: ["category"] }, { required: ["query"] }]
     }
   },
   {
     name: "search_it_knowledge",
-    description: "Tim kiem thong tin cong nghe tu nguon ben ngoai.",
+    description: "Tìm kiếm thông tin công nghệ từ nguồn bên ngoài.",
     inputSchema: {
       type: "object",
       properties: {
-        topic: { type: "string", description: "Chu de can tim kiem." }
+        topic: { type: "string", description: "Chủ đề cần tìm kiếm." }
       },
       required: ["topic"]
     }
   },
   {
     name: "search_sgroup_knowledge",
-    description: "Tra cuu tri thuc noi bo cua SGroup va AI Team.",
+    description: "Tra cứu tri thức nội bộ của SGroup và AI Team.",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Tu khoa tim kiem noi bo." }
+        query: { type: "string", description: "Từ khóa tìm kiếm nội bộ." }
       },
       required: ["query"]
     }
   },
   {
     name: "run_sgroup_assistant",
-    description: "Chay tro ly noi bo de route va tong hop cau tra loi.",
+    description: "Chạy trợ lý nội bộ để route và tổng hợp câu trả lời.",
     inputSchema: {
       type: "object",
       properties: {
-        message: { type: "string", description: "Tin nhan cua nguoi dung." },
-        sessionId: { type: "string", description: "Ma phien lam viec tuy chon." }
+        message: { type: "string", description: "Tin nhắn của người dùng." },
+        sessionId: { type: "string", description: "Mã phiên làm việc tùy chọn." }
       },
       required: ["message"]
     }
@@ -97,13 +97,13 @@ export const RESOURCES = [
   {
     uri: "sgroup://knowledge/ai-team",
     name: "AI Team Knowledge",
-    description: "Tong hop tri thuc noi bo ve AI Team.",
+    description: "Tổng hợp tri thức nội bộ về AI Team.",
     mimeType: "text/plain"
   },
   {
     uri: "sgroup://knowledge/sgroup-overview",
     name: "SGroup Overview",
-    description: "Tong quan tri thuc noi bo ve SGroup.",
+    description: "Tổng quan tri thức nội bộ về SGroup.",
     mimeType: "text/plain"
   }
 ];

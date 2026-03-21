@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SGroup AI Console - Core Frontend Logic
  */
 
@@ -43,7 +43,7 @@ function appendMessage(role, contentHtml) {
   wrapper.classList.add(role);
 
   if (role === "user") {
-    roleSpan.textContent = "Ban";
+    roleSpan.textContent = "Bạn";
     avatar.innerHTML = '<i data-lucide="user"></i>';
     wrapper.classList.add("user");
   } else {
@@ -86,7 +86,7 @@ function renderAssistantPayload(payload) {
     .join("");
 
   const citationsHtml = (payload.response.citations || []).length
-    ? `<div class="citations"><div class="citation-label">Tham khao:</div>${payload.response.citations
+    ? `<div class="citations"><div class="citation-label">Tham khảo:</div>${payload.response.citations
         .map(
           (citation) =>
             `<a href="${citation.url}" class="inline-preview" data-preview-url="${citation.url}" target="_blank" rel="noreferrer">${escapeHtml(citation.title)} <i data-lucide="link" class="icon-tiny"></i></a>`
@@ -99,7 +99,7 @@ function renderAssistantPayload(payload) {
   const graphWarnings = Array.isArray(graph.warnings) ? graph.warnings.filter(Boolean) : [];
   const toolNames = Array.isArray(payload.response.mcp?.toolNames)
     ? payload.response.mcp.toolNames.join(", ")
-    : "Kh�ng d�ng";
+    : "Không dùng";
 
   const traceHtml = (graph.toolCalls || []).length
     ? graph.toolCalls.map((toolCall) => `<strong>${escapeHtml(toolCall.name)}</strong>: ${escapeHtml(JSON.stringify(toolCall.args))}`).join("<br />")
@@ -113,14 +113,14 @@ function renderAssistantPayload(payload) {
     ? `<div class="graph-error-box"><strong>Graph errors:</strong><ul>${graphErrors
         .map((error) => `<li>${escapeHtml(error)}</li>`)
         .join("")}</ul></div>`
-    : '<div class="graph-ok">Khong ghi nhan graph error.</div>';
+    : '<div class="graph-ok">Không ghi nhận graph error.</div>';
   const fallbackHtml = graph.usedFallbackRouter
-    ? '<div class="graph-warning">Fallback router dang duoc su dung.</div>'
+    ? '<div class="graph-warning">Fallback router đang được sử dụng.</div>'
     : "";
 
   const reasoningHtml = `
     <details style='display:none;' class='debug-details'>
-      <summary>Chi tiet xu ly (Graph Logic)</summary>
+      <summary>Chi tiết xử lý (Graph Logic)</summary>
       <div class="meta">
         <strong>Agent:</strong> ${escapeHtml(payload.route?.agent || "Unknown")}<br />
         <strong>Intent:</strong> ${escapeHtml(payload.route?.intent || "N/A")}<br />
@@ -151,17 +151,17 @@ function updateWebPanel(url) {
   webPanel.classList.remove("is-hidden");
   webFrame.src = url;
   webLink.href = url;
-  webPanelStatus.textContent = "Dang tai trang...";
+  webPanelStatus.textContent = "Đang tải trang...";
 
   webFrame.onload = () => {
-    webPanelStatus.textContent = "Da hien thi";
+    webPanelStatus.textContent = "Đã hiển thị";
   };
 }
 
 setTimeout(() => {
   appendMessage(
     "assistant",
-    "Xin chao! Toi la **SGroup Multi-Agent Assistant**.<br />Toi co the giup ban truy van tin tuc, du bao thoi tiet, kien thuc SGroup va dieu phoi cac task phuc tap qua bo cong cu MCP. Ban muon bat dau tu dau?"
+    "Xin chào! Tôi là **SGroup Multi-Agent Assistant**.<br />Tôi có thể giúp bạn truy vấn tin tức, dự báo thời tiết, kiến thức SGroup và điều phối các task phức tạp qua bộ công cụ MCP. Bạn muốn bắt đầu từ đâu?"
   );
 }, 100);
 
@@ -193,7 +193,7 @@ form.addEventListener("submit", async (event) => {
     });
 
     if (!res.ok) {
-      throw new Error("Server tr? v? l?i. Vui l?ng th? l?i.");
+      throw new Error("Server trả về lỗi. Vui lòng thử lại.");
     }
     const payload = await res.json();
 
@@ -205,7 +205,7 @@ form.addEventListener("submit", async (event) => {
     }
   } catch (error) {
     typingIndicator.classList.add("is-hidden");
-    appendMessage("assistant", `<div class="error-text"><strong>L?i:</strong> ${escapeHtml(error.message)}</div>`);
+    appendMessage("assistant", `<div class="error-text"><strong>Lỗi:</strong> ${escapeHtml(error.message)}</div>`);
   }
 });
 

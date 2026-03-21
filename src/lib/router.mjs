@@ -1,4 +1,4 @@
-﻿const VALID_INTENTS = new Set(["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"]);
+const VALID_INTENTS = new Set(["general", "weather", "news", "it-research", "sgroup-knowledge", "mixed-research"]);
 
 const WEATHER_HINTS = ["thoi tiet", "weather", "nhiet do", "troi", "mua", "nang", "do am", "du bao", "bao nhieu do"];
 const NEWS_HINTS = ["tin tuc", "tin moi", "bao moi", "news", "thoi su", "headline", "ban tin", "cap nhat", "tin cong nghe", "tin kinh te"];
@@ -32,9 +32,9 @@ const CITY_ALIASES = {
   hanoi: "Ha Noi",
   "tp.hcm": "Ho Chi Minh City",
   "ho chi minh": "Ho Chi Minh City",
-  "da nang": "Da Nang",
-  "can tho": "Can Tho",
-  "hai phong": "Hai Phong",
+  "da nang": "Đà Nẵng",
+  "can tho": "Cần Thơ",
+  "hai phong": "Hải Phòng",
   hue: "Hue"
 };
 
@@ -236,8 +236,8 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
   const safeIntent = VALID_INTENTS.has(intent) ? intent : "general";
   const defaultReasoningSummary =
     safeIntent === "general" && isGreetingMessage(message)
-      ? "Nguoi dung dang mo dau cuoc tro chuyen bang loi chao ngan, phu hop voi phan hoi chao va goi y kha nang he thong."
-      : "Khong co dau hieu ro rang, uu tien tra loi tong quan va goi y nang luc he thong.";
+      ? "Người dùng đang mở đầu cuộc trò chuyện bằng lời chào ngắn, phù hợp với phản hồi chào và gợi ý khả năng hệ thống."
+      : "Không có dấu hiệu rõ ràng, ưu tiên trả lời tổng quan và gợi ý năng lực hệ thống.";
   const route = {
     agent: AGENT_BY_INTENT[safeIntent] ?? AGENT_BY_INTENT.general,
     intent: safeIntent,
@@ -253,17 +253,17 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
       const topic = extractTopic(message, normalized);
       route.args = { topic, query: topic };
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = "Cau hoi can ket hop tri thuc noi bo va nguon ky thuat ben ngoai.";
+        route.reasoningSummary = "Câu hỏi cần kết hợp tri thức nội bộ và nguồn kỹ thuật bên ngoài.";
       }
       break;
     }
     case "weather": {
       const detectedLocation = extractWeatherLocation(normalized);
-      route.args = { location: detectedLocation ?? "Da Nang" };
+      route.args = { location: detectedLocation ?? "Đà Nẵng" };
       if (!overrides.reasoningSummary) {
         route.reasoningSummary = detectedLocation
-          ? "Cau hoi tap trung vao thoi tiet theo dia diem."
-          : "Cau hoi ve thoi tiet nhung khong neu dia diem, mac dinh su dung Da Nang.";
+          ? "Câu hỏi tập trung vào thời tiết theo địa điểm."
+          : "Câu hỏi về thời tiết nhưng không nêu địa điểm, mặc định sử dụng Đà Nẵng.";
       }
       break;
     }
@@ -271,22 +271,22 @@ export function createRouteFromIntent(message, intent, overrides = {}) {
       route.args = extractNewsArgs(message, normalized);
       if (!overrides.reasoningSummary) {
         route.reasoningSummary = route.args.query
-          ? "Cau hoi yeu cau tim tin tuc theo chu de cu the."
-          : "Cau hoi yeu cau tong hop tin tuc theo danh muc.";
+          ? "Câu hỏi yêu cầu tìm tin tức theo chủ đề cụ thể."
+          : "Câu hỏi yêu cầu tổng hợp tin tức theo danh mục.";
       }
       break;
     }
     case "sgroup-knowledge": {
       route.args = { query: extractTopic(message, normalized) };
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = "Cau hoi lien quan den tri thuc noi bo cua SGroup hoac AI Team.";
+        route.reasoningSummary = "Câu hỏi liên quan đến tri thức nội bộ của SGroup hoặc AI Team.";
       }
       break;
     }
     case "it-research": {
       route.args = { topic: extractTopic(message, normalized) };
       if (!overrides.reasoningSummary) {
-        route.reasoningSummary = "Cau hoi nghien cuu cong nghe phu hop voi tool tim kiem IT.";
+        route.reasoningSummary = "Câu hỏi nghiên cứu công nghệ phù hợp với tool tìm kiếm IT.";
       }
       break;
     }

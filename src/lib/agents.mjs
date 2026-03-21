@@ -1,4 +1,4 @@
-﻿import { searchKnowledge } from "./knowledge.mjs";
+import { searchKnowledge } from "./knowledge.mjs";
 import { queryNews, queryWeather, queryWebSearch } from "./providers.mjs";
 
 function formatConfidence(value) {
@@ -45,7 +45,7 @@ function buildKnowledgeMarkdown(query, aiTeamResults, sgroupResults) {
   }
 
   if (aiTeamResults.length === 0 && sgroupResults.length === 0) {
-    markdown += "Chua tim thay ban ghi phu hop trong kho tri thuc noi bo.";
+    markdown += "Chưa tìm thấy bản ghi phù hợp trong kho tri thức nội bộ.";
   }
 
   return markdown.trim();
@@ -54,13 +54,13 @@ function buildKnowledgeMarkdown(query, aiTeamResults, sgroupResults) {
 export async function handleWeatherAgent(args, route) {
   const result = await queryWeather(args.location);
   return buildResponse({
-    message: `## Thoi tiet hien tai\n\n${result.message}\n\n[Nguon tham khao](${result.webUrl})`,
+    message: `## Thời tiết hiện tại\n\n${result.message}\n\n[Nguồn tham khảo](${result.webUrl})`,
     citations: result.citations,
     webUrl: result.webUrl,
     statusSteps: [
-      "Da phan loai intent thoi tiet.",
-      `Da goi MCP tool ${route.toolName}.`,
-      result.fallbackUsed ? "Dang dung fallback an toan do thieu hoac loi provider." : "Da lay du lieu tu provider chinh."
+      "Đã phân loại intent thời tiết.",
+      `Đã gọi MCP tool ${route.toolName}.`,
+      result.fallbackUsed ? "Đang dùng fallback an toàn do thiếu hoặc lỗi provider." : "Đã lấy dữ liệu từ provider chính."
     ],
     mcp: { toolName: route.toolName, confidence: formatConfidence(route.confidence) }
   });
@@ -69,13 +69,13 @@ export async function handleWeatherAgent(args, route) {
 export async function handleNewsAgent(args, route) {
   const result = await queryNews(args);
   return buildResponse({
-    message: `## Tin tuc moi nhat\n\n${result.message}\n\n[Nguon tham khao](${result.webUrl})`,
+    message: `## Tin tức mới nhất\n\n${result.message}\n\n[Nguồn tham khảo](${result.webUrl})`,
     citations: result.citations,
     webUrl: result.webUrl,
     statusSteps: [
-      "Da phan loai intent tin tuc.",
-      `Da goi MCP tool ${route.toolName}.`,
-      result.fallbackUsed ? "Dang dung RSS/mock fallback an toan." : "Da lay du lieu tu provider chinh."
+      "Đã phân loại intent tin tức.",
+      `Đã gọi MCP tool ${route.toolName}.`,
+      result.fallbackUsed ? "Đang dùng RSS/mock fallback an toàn." : "Đã lấy dữ liệu từ provider chính."
     ],
     mcp: { toolName: route.toolName, confidence: formatConfidence(route.confidence) }
   });
@@ -84,13 +84,13 @@ export async function handleNewsAgent(args, route) {
 export async function handleItAgent(args, route) {
   const result = await queryWebSearch(args.topic);
   return buildResponse({
-    message: `## Kien thuc IT\n\n${result.message}\n\n[Nguon tham khao](${result.webUrl})`,
+    message: `## Kiến thức IT\n\n${result.message}\n\n[Nguồn tham khảo](${result.webUrl})`,
     citations: result.citations,
     webUrl: result.webUrl,
     statusSteps: [
-      "Da phan loai intent nghien cuu IT.",
-      `Da goi MCP tool ${route.toolName}.`,
-      result.fallbackUsed ? "Dang dung fallback an toan do chua cau hinh provider." : "Da lay ket qua tim kiem tu provider chinh."
+      "Đã phân loại intent nghiên cứu IT.",
+      `Đã gọi MCP tool ${route.toolName}.`,
+      result.fallbackUsed ? "Đang dùng fallback an toàn do chưa cấu hình provider." : "Đã lấy kết quả tìm kiếm từ provider chính."
     ],
     mcp: { toolName: route.toolName, confidence: formatConfidence(route.confidence) }
   });
@@ -103,9 +103,9 @@ export async function handleSgroupAgent(args, route) {
   return buildResponse({
     message: buildKnowledgeMarkdown(args.query, aiTeamResults, sgroupResults),
     statusSteps: [
-      "Da phan loai intent tri thuc noi bo.",
-      `Da goi MCP tool ${route.toolName}.`,
-      aiTeamResults.length || sgroupResults.length ? "Da tong hop ket qua tu kho tri thuc noi bo." : "Khong co ban ghi khop, da tra ve ket qua an toan."
+      "Đã phân loại intent tri thức nội bộ.",
+      `Đã gọi MCP tool ${route.toolName}.`,
+      aiTeamResults.length || sgroupResults.length ? "Đã tổng hợp kết quả từ kho tri thức nội bộ." : "Không có bản ghi khớp, đã trả về kết quả an toàn."
     ],
     mcp: { toolName: route.toolName, confidence: formatConfidence(route.confidence) }
   });
@@ -118,14 +118,14 @@ export async function handleMixedResearchAgent(args, route) {
   const internalSummary = buildKnowledgeMarkdown(args.query, aiTeamResults, sgroupResults);
 
   return buildResponse({
-    message: `## Nghien cuu tong hop\n\n### Tong quan ky thuat\n${external.message}\n\n### Lien he he thong noi bo\n${internalSummary}`,
+    message: `## Nghiên cứu tổng hợp\n\n### Tổng quan kỹ thuật\n${external.message}\n\n### Liên hệ hệ thống nội bộ\n${internalSummary}`,
     citations: external.citations,
     webUrl: external.webUrl,
     statusSteps: [
-      "Da phan loai intent nghien cuu ket hop.",
-      "Da goi MCP tool search_it_knowledge.",
-      "Da goi MCP tool search_sgroup_knowledge.",
-      "Da hop nhat nguon ben ngoai va tri thuc noi bo."
+      "Đã phân loại intent nghiên cứu kết hợp.",
+      "Đã gọi MCP tool search_it_knowledge.",
+      "Đã gọi MCP tool search_sgroup_knowledge.",
+      "Đã hợp nhất nguồn bên ngoài và tri thức nội bộ."
     ],
     mcp: { toolName: route.toolName, confidence: formatConfidence(route.confidence) }
   });
@@ -133,10 +133,10 @@ export async function handleMixedResearchAgent(args, route) {
 
 export async function handleGeneralAgent() {
   return buildResponse({
-    message: "Toi co the ho tro tri thuc SGroup/AI Team, thoi tiet, tin tuc va nghien cuu IT. Hay dat cau hoi cu the hon, vi du: `gioi thieu AI Team`, `thoi tiet Ha Noi`, `tin cong nghe`, hoac `tim hieu MCP`.",
+    message: "Tôi có thể hỗ trợ tri thức SGroup/AI Team, thời tiết, tin tức và nghiên cứu IT. Hãy đặt câu hỏi cụ thể hơn, ví dụ: `giới thiệu AI Team`, `thời tiết Hà Nội`, `tin công nghệ`, hoặc `tìm hiểu MCP`.",
     statusSteps: [
-      "Da phan loai intent tong quan.",
-      "Khong can goi MCP tool chuyen biet cho cau hoi hien tai."
+      "Đã phân loại intent tổng quan.",
+      "Không cần gọi MCP tool chuyên biệt cho câu hỏi hiện tại."
     ],
     mcp: { toolName: null, confidence: 0.55 }
   });

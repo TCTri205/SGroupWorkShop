@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import { cacheGet, cacheSet } from "./cache.mjs";
 
 const WEATHER_TTL = 600;
@@ -230,7 +230,7 @@ export async function queryWeather(location) {
     const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      throw new Error(`OpenWeather API loi ${response.status}: ${response.statusText}`);
+      throw new Error(`OpenWeather API lỗi ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -336,7 +336,7 @@ export async function queryWebSearch(query) {
     });
 
     if (!response.ok) {
-      throw new Error(`Exa API loi ${response.status}: ${response.statusText}`);
+      throw new Error(`Exa API lỗi ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();

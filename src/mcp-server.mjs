@@ -17,59 +17,59 @@ import { initializeClients } from "./lib/mcp-client-manager.mjs";
 export const PROMPTS = [
   {
     name: "tom-tat-du-an-sgroup",
-    description: "Tom tat cac du an AI Team va SGroup hien tai",
+    description: "Tóm tắt các dự án AI Team và SGroup hiện tại",
     arguments: []
   },
   {
     name: "bao-cao-sang-nay",
-    description: "Bao cao thoi tiet va diem tin cong nghe sang nay",
+    description: "Báo cáo thời tiết và điểm tin công nghệ sáng nay",
     arguments: [
       {
         name: "city",
-        description: "Ten thanh pho can xem thoi tiet (mac dinh: Ha Noi)",
+        description: "Tên thành phố cần xem thời tiết (mặc định: Hà Nội)",
         required: false
       }
     ]
   },
   {
     name: "tra-cuu-kien-thuc-it",
-    description: "Tra cuu kien thuc IT tu nguon tai lieu tin cay",
+    description: "Tra cứu kiến thức IT từ nguồn tài liệu tin cậy",
     arguments: [
       {
         name: "topic",
-        description: "Chu de cong nghe can tra cuu",
+        description: "Chủ đề công nghệ cần tra cứu",
         required: true
       }
     ]
   },
   {
     name: "tom-tat-ai-team",
-    description: "Tom tat cau truc AI Team tu resource noi bo",
+    description: "Tóm tắt cấu trúc AI Team từ resource nội bộ",
     arguments: []
   },
   {
     name: "tom-tat-sgroup-overview",
-    description: "Tom tat thong tin tong quan ve SGroup tu resource noi bo",
+    description: "Tóm tắt thông tin tổng quan về SGroup từ resource nội bộ",
     arguments: []
   },
   {
     name: "nghien-cuu-chu-de-noi-bo",
-    description: "Tong hop nghien cuu chu de cong nghe va lien he voi tri thuc noi bo",
+    description: "Tổng hợp nghiên cứu chủ đề công nghệ và liên hệ với tri thức nội bộ",
     arguments: [
       {
         name: "topic",
-        description: "Chu de cong nghe can nghien cuu",
+        description: "Chủ đề công nghệ cần nghiên cứu",
         required: true
       }
     ]
   },
   {
     name: "hoi-dap-da-buoc-sgroup",
-    description: "Chay tro ly LangGraph cho cau hoi tong hop hoac da buoc",
+    description: "Chạy trợ lý LangGraph cho câu hỏi tổng hợp hoặc đa bước",
     arguments: [
       {
         name: "message",
-        description: "Cau hoi tong hop cua nguoi dung",
+        description: "Câu hỏi tổng hợp của người dùng",
         required: true
       }
     ]
@@ -84,19 +84,19 @@ export function getPromptMessages(name, args) {
           role: "user",
           content: {
             type: "text",
-            text: "Hay su dung tool search_sgroup_knowledge de tim kiem thong tin ve cac du an va module cua AI Team SGroup. Sau do tom tat ngan gon: muc tieu tong the, cac module chinh dang phat trien, va trang thai hien tai cua tung module."
+            text: "Hãy sử dụng tool search_sgroup_knowledge để tìm kiếm thông tin về các dự án và module của AI Team SGroup. Sau đó tóm tắt ngắn gọn: mục tiêu tổng thể, các module chính đang phát triển, và trạng thái hiện tại của từng module."
           }
         }
       ];
 
     case "bao-cao-sang-nay": {
-      const city = String(args?.city ?? "").trim() || "Ha Noi";
+      const city = String(args?.city ?? "").trim() || "Hà Nội";
       return [
         {
           role: "user",
           content: {
             type: "text",
-            text: `Hay thuc hien theo thu tu:\n1. Dung tool get_weather voi location="${city}" de lay thoi tiet buoi sang.\n2. Dung tool get_news voi category="cong-nghe" de lay diem tin cong nghe moi nhat.\nSau do trinh bay ket qua thanh ban bao cao buoi sang gon gang, de doc.`
+            text: `Hãy thực hiện theo thứ tự:\n1. Dùng tool get_weather với location="${city}" để lấy thời tiết buổi sáng.\n2. Dùng tool get_news với category="cong-nghe" để lấy điểm tin công nghệ mới nhất.\nSau đó trình bày kết quả thành bản báo cáo buổi sáng gọn gàng, dễ đọc.`
           }
         }
       ];
@@ -109,7 +109,7 @@ export function getPromptMessages(name, args) {
           role: "user",
           content: {
             type: "text",
-            text: `Hay dung tool search_it_knowledge voi topic="${topic}" de tra cuu thong tin tu nguon tai lieu tin cay. Sau do tom tat ngan gon cac khai niem chinh, best practices quan trong, va liet ke nguon doc them.`
+            text: `Hãy dùng tool search_it_knowledge với topic="${topic}" để tra cứu thông tin từ nguồn tài liệu tin cậy. Sau đó tóm tắt ngắn gọn các khái niệm chính, best practices quan trọng, và liệt kê nguồn đọc thêm.`
           }
         }
       ];
@@ -121,7 +121,7 @@ export function getPromptMessages(name, args) {
           role: "user",
           content: {
             type: "text",
-            text: "Hay doc resource sgroup://knowledge/ai-team, sau do tom tat cau truc AI Team, cac du an chinh, cac module dang phat trien, va moi lien he giua chung thanh mot ban tong quan ngan gon."
+            text: "Hãy đọc resource sgroup://knowledge/ai-team, sau đó tóm tắt cấu trúc AI Team, các dự án chính, các module đang phát triển, và mối liên hệ giữa chúng thành một bản tổng quan ngắn gọn."
           }
         }
       ];
@@ -132,7 +132,7 @@ export function getPromptMessages(name, args) {
           role: "user",
           content: {
             type: "text",
-            text: "Hay doc resource sgroup://knowledge/sgroup-overview, sau do tom tat lich su, su menh, tam nhin, va cac diem noi bat quan trong cua SGroup thanh mot ban gioi thieu ngan gon."
+            text: "Hãy đọc resource sgroup://knowledge/sgroup-overview, sau đó tóm tắt lịch sử, sứ mệnh, tầm nhìn, và các điểm nổi bật quan trọng của SGroup thành một bản giới thiệu ngắn gọn."
           }
         }
       ];
@@ -144,27 +144,27 @@ export function getPromptMessages(name, args) {
           role: "user",
           content: {
             type: "text",
-            text: `Hay thuc hien theo thu tu:\n1. Dung tool search_it_knowledge voi topic="${topic}" de lay tong quan ky thuat va nguon tham khao ben ngoai.\n2. Dung tool search_sgroup_knowledge de tim cac du an, module, hoac thanh phan noi bo lien quan den "${topic}".\n3. Tong hop thanh mot ban nghien cuu ngan gon gom: tong quan ky thuat, lien he voi he thong noi bo, co hoi ap dung, va danh sach nguon tham khao.`
+            text: `Hãy thực hiện theo thứ tự:\n1. Dùng tool search_it_knowledge với topic="${topic}" để lấy tổng quan kỹ thuật và nguồn tham khảo bên ngoài.\n2. Dùng tool search_sgroup_knowledge để tìm các dự án, module, hoặc thành phần nội bộ liên quan đến "${topic}".\n3. Tổng hợp thành một bản nghiên cứu ngắn gọn gồm: tổng quan kỹ thuật, liên hệ với hệ thống nội bộ, cơ hội áp dụng, và danh sách nguồn tham khảo.`
           }
         }
       ];
     }
 
     case "hoi-dap-da-buoc-sgroup": {
-      const message = String(args?.message ?? "").trim() || "MCP co the ap dung cho chatbot noi bo cua SGroup khong?";
+      const message = String(args?.message ?? "").trim() || "MCP có thể áp dụng cho chatbot nội bộ của SGroup không?";
       return [
         {
           role: "user",
           content: {
             type: "text",
-            text: `Hay dung tool run_sgroup_assistant voi message="${message}" de route, goi capability phu hop va tong hop cau tra loi cuoi cung.`
+            text: `Hãy dùng tool run_sgroup_assistant với message="${message}" để route, gọi capability phù hợp và tổng hợp câu trả lời cuối cùng.`
           }
         }
       ];
     }
 
     default:
-      throw new Error(`Prompt khong ton tai: ${name}`);
+      throw new Error(`Prompt không tồn tại: ${name}`);
   }
 }
 

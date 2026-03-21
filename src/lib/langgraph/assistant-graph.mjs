@@ -365,7 +365,7 @@ function buildGraphFailurePayload({ message, safeSessionId, normalizedMessage, c
     agent: AGENT_BY_INTENT.general,
     intent: "general",
     confidence: 0,
-    reasoningSummary: "Khong the hoan tat phan tich bang LLM.",
+    reasoningSummary: "Không thể hoàn tất phân tích bằng LLM.",
     toolName: null,
     toolNames: [],
     args: {},
@@ -443,7 +443,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
     decisionNotes.push("empty_general_fast_path");
     return buildGeneralFastPathPayload({
       message:
-        "Toi co the ho tro tri thuc SGroup/AI Team, thoi tiet, tin tuc va nghien cuu IT. Hay dat cau hoi cu the hon, vi du: gioi thieu AI Team, thoi tiet Ha Noi, tin cong nghe, hoac tim hieu MCP.",
+        "Tôi có thể hỗ trợ tri thức SGroup/AI Team, thời tiết, tin tức và nghiên cứu IT. Hãy đặt câu hỏi cụ thể hơn, ví dụ: giới thiệu AI Team, thời tiết Hà Nội, tin công nghệ, hoặc tìm hiểu MCP.",
       safeSessionId,
       normalizedMessage,
       channel,
@@ -456,7 +456,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
     decisionNotes.push("greeting_general_fast_path");
     return buildGeneralFastPathPayload({
       message:
-        "Chao ban. Toi co the ho tro tri thuc SGroup/AI Team, thoi tiet, tin tuc va nghien cuu IT. Hay dat cau hoi cu the hon, vi du: gioi thieu AI Team, thoi tiet Ha Noi hom nay, tin cong nghe, hoac tim hieu MCP.",
+        "Chào bạn. Tôi có thể hỗ trợ tri thức SGroup/AI Team, thời tiết, tin tức và nghiên cứu IT. Hãy đặt câu hỏi cụ thể hơn, ví dụ: giới thiệu AI Team, thời tiết Hà Nội hôm nay, tin công nghệ, hoặc tìm hiểu MCP.",
       safeSessionId,
       normalizedMessage,
       channel,
@@ -487,7 +487,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
     errors.push(errorMessage);
     decisionNotes.push("route_error");
     return buildGraphFailurePayload({
-      message: `Khong the phan tich yeu cau bang LLM luc nay: ${errorMessage}`,
+      message: `Không thể phân tích yêu cầu bằng LLM lúc này: ${errorMessage}`,
       safeSessionId,
       normalizedMessage,
       channel,
@@ -535,7 +535,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
       errors.push(errorMessage);
       decisionNotes.push("planner_error");
       return buildGraphFailurePayload({
-        message: `Khong the lap ke hoach goi tool bang LLM luc nay: ${errorMessage}`,
+        message: `Không thể lập kế hoạch gọi tool bằng LLM lúc này: ${errorMessage}`,
         safeSessionId,
         normalizedMessage,
         channel,
@@ -573,7 +573,7 @@ export async function invokeAssistantGraph({ message, channel = "web", sessionId
     errors.push(errorMessage);
     decisionNotes.push("synthesis_error");
     return buildGraphFailurePayload({
-      message: `Khong the tong hop cau tra loi bang LLM luc nay: ${errorMessage}`,
+      message: `Không thể tổng hợp câu trả lời bằng LLM lúc này: ${errorMessage}`,
       safeSessionId,
       normalizedMessage,
       channel,
